@@ -36,6 +36,8 @@ export class Grid {
   readonly pile: Uint16Array
   /** 1 once the tile has ever been visible to the player. */
   readonly seen: Uint8Array
+  /** 1 where a room tile was laid over water and should revert when removed. */
+  readonly bridged: Uint8Array
 
   constructor(width: number, height: number) {
     this.width = width
@@ -49,6 +51,7 @@ export class Grid {
     this.vein = new Uint16Array(n)
     this.pile = new Uint16Array(n)
     this.seen = new Uint8Array(n)
+    this.bridged = new Uint8Array(n)
   }
 
   idx(x: number, y: number): number {

@@ -52,6 +52,8 @@ export interface RoomEffects {
   prison?: { capacityPerTile: number }
   /** Flat morale/loyalty regeneration for creatures of matching wing. */
   morale?: { loyaltyPerMinute: number }
+  /** Can be laid over flooded tiles, turning them into walkable ground. */
+  bridge?: { over: 'water' }
 }
 
 export interface RoomDef {

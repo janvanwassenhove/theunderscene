@@ -7,6 +7,7 @@ const CORE_ROOMS = [
   'practice-space',
   'basement-venue',
   'screen-print-shack',
+  'merch-stand',
 ]
 
 /**
@@ -111,6 +112,10 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
       {
         when: { kind: 'elapsed', seconds: 100 },
         text: 'Intruders come in through your door. Sold Out seals it — while it lasts.',
+      },
+      {
+        when: { kind: 'elapsed', seconds: 200 },
+        text: 'Flooded section in the way? A Merch Stand planks straight over it.',
       },
     ],
     raids: [

@@ -46,10 +46,12 @@ Append to `ROOMS` in `rooms.ts` and list its id in a level's `rooms` array.
 ```
 
 `effects` is the whole contract with the engine. Supported today: `treasury`,
-`lair`, `food`, `training`, `buzz`, `royalties`, `portal`, `morale`. A room may
-declare `prison` and it will be stored, but nothing consumes it until captives
-exist (Phase 2). A room with no `effects` is decorative and costs Royalties,
-which is a legitimate design choice, not a bug.
+`lair`, `food`, `training`, `buzz`, `royalties`, `portal`, `prison`, `morale`
+and `bridge`. A room with no `effects` is decorative and costs Royalties, which
+is a legitimate design choice, not a bug.
+
+`bridge` lets a room be laid over water, and only from ground the player already
+holds; removing it puts the water back.
 
 `attracts` is what makes creatures walk in through a Booking Agent's Door, once
 the room is at least `minTiles` big and the basement is under its cap.

@@ -268,11 +268,24 @@ export class Simulation {
 
   canBuildAt(defId: string, x: number, y: number): boolean {
     if (!this.grid.inBounds(x, y)) return false
+    const def = roomOrNull(defId)
+    if (!def) return false
     const i = this.grid.idx(x, y)
+
+    // A Merch Stand is the one thing that goes over water — laid from ground
+    // you already hold, so you plank your way across rather than teleporting a
+    // room into the middle of a flooded section.
+    if (def.effects?.bridge && this.grid.kindAt(x, y) === TileKind.Water) {
+      if (!this.grid.seen[i]) return false
+      return this.grid
+        .neighbours(x, y)
+        .some((n) => this.grid.walkable(n.x, n.y) && this.grid.claimed[this.grid.idx(n.x, n.y)])
+    }
+
     if (this.grid.kindAt(x, y) !== TileKind.Floor) return false
     if (!this.grid.claimed[i]) return false
     if (this.grid.pile[i] > 0) return false
-    return roomOrNull(defId) !== null
+    return true
   }
 
   buildCost(defId: string, tiles: number): number {
@@ -306,10 +319,14 @@ export class Simulation {
     const instance = this.rooms.get(this.grid.roomId[i]!)
     if (!instance) return false
     if (instance.def === 'booking-door') return false
-    this.royalties += Math.floor(room(instance.def).costPerTile / 2)
-    this.grid.setKind(x, y, TileKind.Floor)
+    const def = room(instance.def)
+    this.royalties += Math.floor(def.costPerTile / 2)
+    // Pull up a bridge and the water is back where it was.
+    const bridged = this.grid.bridged[i] === 1
+    this.grid.setKind(x, y, bridged ? TileKind.Water : TileKind.Floor)
+    this.grid.bridged[i] = 0
     this.grid.roomId[i] = 0
-    this.grid.claimed[i] = 1
+    this.grid.claimed[i] = bridged ? 0 : 1
     this.dirty.add(i)
     this.reindexRooms()
     return true
@@ -467,9 +484,11 @@ export class Simulation {
       for (const c of this.creatures) c.loyalty = Math.min(100, c.loyalty + moraleGain)
     }
 
-    // Reputation drifts toward how loud and how staffed you actually are.
+    // Ambient drift towards how loud and how staffed you are. Discrete events —
+    // raids repelled, creatures signed away, rooms torn down — move it faster.
     const target = Math.min(100, this.buzz / 4 + this.population * 2)
     this.reputation += (target - this.reputation) * Math.min(1, dt * 0.05)
+    this.reputation = Math.max(0, Math.min(100, this.reputation))
 
     this.paydayIn -= dt
     if (this.paydayIn <= 0) {
@@ -502,7 +521,10 @@ export class Simulation {
       this.spawnIn = 5
       return
     }
-    this.spawnIn = room('booking-door').effects?.portal?.spawnIntervalSeconds ?? 20
+    // Reputation is what makes people turn up faster: at 100 the door swings
+    // at roughly half the interval it does at 0.
+    const base = room('booking-door').effects?.portal?.spawnIntervalSeconds ?? 20
+    this.spawnIn = base * (1 - Math.min(100, Math.max(0, this.reputation)) / 200)
 
     if (this.population >= this.capacity) return
 
@@ -607,10 +629,16 @@ export class Simulation {
       }
 
       this.firedRaids.add(index)
+      // A basement nobody has heard of gets the wave as written. A famous one
+      // gets extra attention, which is the cost of doing well.
+      const extra = this.reputation >= 60 ? 1 : 0
       for (const entry of wave.enemies) {
         for (let i = 0; i < entry.count; i++) {
           this.spawnEnemy(entry.enemy, this.rng.pick(doors))
         }
+      }
+      if (extra > 0 && wave.enemies[0]) {
+        this.spawnEnemy(wave.enemies[0].enemy, this.rng.pick(doors))
       }
       this.pendingAlerts.push(wave.announce)
       this.log(wave.announce, 'bad')
@@ -781,6 +809,7 @@ export class Simulation {
         this.grid.roomId[this.grid.idx(x, y)] = 0
         this.dirty.add(this.grid.idx(x, y))
         this.reindexRooms()
+        this.adjustReputation(-3)
         this.log(`${def.name} took a tile of your ${room(instance.def).name} apart.`, 'bad')
       }
     }
@@ -845,6 +874,7 @@ export class Simulation {
    */
   private captureCreature(e: Enemy, target: Creature): void {
     this.capturedCreatures.push(target.def)
+    this.adjustReputation(-8)
     this.log(`${creatureDef(target.def).name} got signed. Clear the level to get them back.`, 'bad')
     this.releaseJob(target)
     target.state = 'leaving'
@@ -878,6 +908,7 @@ export class Simulation {
   private escapeEnemy(e: Enemy): void {
     if (e.carrying > 0) {
       this.log(`${enemyDef(e.def).name} left with ${Math.round(e.carrying)} Royalties. Rude.`, 'bad')
+      this.adjustReputation(-6)
     }
     this.enemies = this.enemies.filter((other) => other.id !== e.id)
   }
@@ -886,6 +917,8 @@ export class Simulation {
   private downEnemy(e: Enemy): void {
     const def = enemyDef(e.def)
     this.defeated[e.def] = (this.defeated[e.def] ?? 0) + 1
+    // Seeing off something big is worth more than swatting a scout.
+    this.adjustReputation(Math.min(10, 2 + def.hp / 100))
     if (e.carrying > 0) {
       const i = this.grid.idx(Math.round(e.x), Math.round(e.y))
       this.grid.pile[i] += Math.round(e.carrying)
@@ -900,6 +933,11 @@ export class Simulation {
       this.enemies = this.enemies.filter((other) => other.id !== e.id)
       this.log(`${def.name} was seen off the premises.`, 'good')
     }
+  }
+
+  /** Reputation is clamped to 0..100 and logged when it moves sharply. */
+  private adjustReputation(delta: number): void {
+    this.reputation = Math.max(0, Math.min(100, this.reputation + delta))
   }
 
   private freePrisonSlots(): number {
@@ -1377,6 +1415,7 @@ export class Simulation {
     }
     for (const t of tiles) {
       const i = this.grid.idx(t.x, t.y)
+      if (this.grid.kindAt(t.x, t.y) === TileKind.Water) this.grid.bridged[i] = 1
       this.grid.setKind(t.x, t.y, TileKind.Room)
       this.grid.roomId[i] = instanceId
       this.grid.claimed[i] = 1
@@ -1498,6 +1537,7 @@ export class Simulation {
       vein: new Uint16Array(this.grid.vein),
       pile: new Uint16Array(this.grid.pile),
       seen: new Uint8Array(this.grid.seen),
+      bridged: new Uint8Array(this.grid.bridged),
       rooms: [...this.rooms.values()].map((r) => ({ ...r })),
       creatures: this.creatures.map((c) => ({ ...c, path: c.path.map((p) => ({ ...p })), job: c.job ? { ...c.job } : null })),
       enemies: this.enemies.map((e) => ({ ...e, path: e.path.map((p) => ({ ...p })) })),
@@ -1531,6 +1571,7 @@ export class Simulation {
     sim.grid.vein.set(snapshot.vein)
     sim.grid.pile.set(snapshot.pile)
     sim.grid.seen.set(snapshot.seen)
+    if (snapshot.bridged) sim.grid.bridged.set(snapshot.bridged)
 
     sim.rooms = new Map(snapshot.rooms.map((r) => [r.id, { ...r }]))
     sim.creatures = snapshot.creatures.map((c) => ({ ...c }))
@@ -1589,6 +1630,7 @@ export interface SimSnapshot {
   vein: Uint16Array
   pile: Uint16Array
   seen: Uint8Array
+  bridged: Uint8Array
   rooms: RoomInstance[]
   creatures: Creature[]
   enemies: Enemy[]

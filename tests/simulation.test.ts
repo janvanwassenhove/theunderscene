@@ -230,3 +230,95 @@ describe('Level connectivity', () => {
     }
   })
 })
+
+describe('Bridging flooded sections', () => {
+  it('lays a Merch Stand over water and takes it back up again', () => {
+    const sim = new Simulation(LEVEL)
+    // Flood a tile right next to the starting chamber.
+    const wet = { x: LEVEL.heart.x + 4, y: LEVEL.heart.y }
+    sim.grid.setKind(wet.x, wet.y, TileKind.Water)
+    sim.grid.seen[sim.grid.idx(wet.x, wet.y)] = 1
+    expect(sim.grid.walkable(wet.x, wet.y)).toBe(false)
+
+    // Only a bridging room may go there, and only from ground you hold.
+    expect(sim.canBuildAt('green-room', wet.x, wet.y)).toBe(false)
+    expect(sim.canBuildAt('merch-stand', wet.x, wet.y)).toBe(true)
+
+    expect(sim.build('merch-stand', [wet]).placed).toBe(1)
+    expect(sim.grid.walkable(wet.x, wet.y)).toBe(true)
+
+    sim.demolish(wet.x, wet.y)
+    expect(sim.grid.kindAt(wet.x, wet.y)).toBe(TileKind.Water)
+    expect(sim.grid.walkable(wet.x, wet.y)).toBe(false)
+  })
+
+  it('refuses a bridge that does not start from ground you hold', () => {
+    const sim = new Simulation(LEVEL)
+    const wet = { x: 2, y: 2 }
+    sim.grid.setKind(wet.x, wet.y, TileKind.Water)
+    sim.grid.seen[sim.grid.idx(wet.x, wet.y)] = 1
+    expect(sim.canBuildAt('merch-stand', wet.x, wet.y)).toBe(false)
+  })
+
+  it('keeps bridges across a save and reload', () => {
+    const sim = new Simulation(LEVEL)
+    const wet = { x: LEVEL.heart.x + 4, y: LEVEL.heart.y }
+    sim.grid.setKind(wet.x, wet.y, TileKind.Water)
+    sim.grid.seen[sim.grid.idx(wet.x, wet.y)] = 1
+    sim.build('merch-stand', [wet])
+
+    const restored = Simulation.deserialize(LEVEL, sim.serialize())
+    expect(restored.grid.bridged[restored.grid.idx(wet.x, wet.y)]).toBe(1)
+    restored.demolish(wet.x, wet.y)
+    expect(restored.grid.kindAt(wet.x, wet.y)).toBe(TileKind.Water)
+  })
+})
+
+describe('Reputation', () => {
+  // Reputation also drifts towards how loud and staffed the basement is, so
+  // each of these compares against an otherwise identical run — that isolates
+  // what the event itself did rather than measuring the drift.
+  it('rises when an intruder is seen off', () => {
+    const control = new Simulation(LEVEL)
+    run(control, 30)
+
+    const defended = new Simulation(LEVEL)
+    defended.spawnEnemy('ar-scout', { x: LEVEL.heart.x, y: LEVEL.heart.y })
+    run(defended, 30)
+
+    expect(defended.defeated['ar-scout']).toBe(1)
+    expect(defended.reputation).toBeGreaterThan(control.reputation)
+  })
+
+  it('falls when a creature is signed away', () => {
+    const lone = () => {
+      const sim = new Simulation(LEVEL)
+      sim.creatures = sim.creatures.slice(0, 1)
+      sim.creatures[0]!.x = LEVEL.heart.x
+      sim.creatures[0]!.y = LEVEL.heart.y
+      return sim
+    }
+
+    const control = lone()
+    run(control, 12)
+
+    const raided = lone()
+    raided.spawnEnemy('ar-scout', { x: LEVEL.heart.x + 1, y: LEVEL.heart.y })
+    run(raided, 12)
+
+    expect(raided.capturedCreatures.length).toBe(1)
+    expect(raided.reputation).toBeLessThan(control.reputation)
+  })
+
+  it('stays inside 0..100 however badly it goes', () => {
+    const sim = new Simulation(LEVEL)
+    sim.reputation = 2
+    sim.creatures = sim.creatures.slice(0, 1)
+    sim.creatures[0]!.x = LEVEL.heart.x
+    sim.creatures[0]!.y = LEVEL.heart.y
+    sim.spawnEnemy('ar-scout', { x: LEVEL.heart.x + 1, y: LEVEL.heart.y })
+    run(sim, 12)
+    expect(sim.reputation).toBeGreaterThanOrEqual(0)
+    expect(sim.reputation).toBeLessThanOrEqual(100)
+  })
+})

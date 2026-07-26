@@ -59,6 +59,22 @@ Date: 2026-07-26
 - Level 3 now unlocks the Contract Office, Signing Room, Encore and Sold Out,
   and its objectives are Royalties, roster size and seeing off the Warlord.
 
+**Reputation now does something**
+- Recruitment speed scales with it: at 100 the door swings at roughly half the
+  interval it does at 0.
+- Waves get one extra intruder above 60 Reputation. Doing well is what draws the
+  industry, which is the intended tension.
+- It moves on outcomes, not just ambient drift: up for seeing an intruder off
+  (scaled by how big it was), down for a creature signed away, a room tile torn
+  down, or loot leaving through the door. Clamped to 0..100.
+
+**Water can be bridged**
+- Merch Stand is the one room that goes over a flooded tile, and only from
+  ground you already hold — you plank your way across rather than dropping a
+  room into the middle of a flood. Tearing it up puts the water back.
+- Tracked as a `bridged` bit on the grid so it survives a save and reload.
+- Added to level 2 and 3's build lists, with a hint.
+
 ## Bugs found and fixed during verification
 
 - **The Booking Agent's Door was carved as an isolated pocket.** Anything that
@@ -80,9 +96,6 @@ Date: 2026-07-26
 - **Ranged behaviour is declared but unused** — every intruder currently closes
   to melee. The Wraith drains from wherever it stands, which is close enough for
   now but is not the ranged attack the data allows for.
-- **Reputation still has no consequences.** It moves and is displayed; nothing
-  reads it.
-- **Water still cannot be bridged**; Merch Stand remains inert.
 - Placeholder art and placeholder flavour text throughout.
 
 ## Known rough edges
@@ -98,8 +111,10 @@ Date: 2026-07-26
 
 ## Verified on
 
-38 unit tests, all passing, covering raid scheduling, sealed doors, both
-outcomes of a signing, vault theft, capture-to-conversion, the goal fallback and
+44 unit tests, all passing, covering raid scheduling, sealed doors, both
+outcomes of a signing, vault theft, capture-to-conversion, the goal fallback,
+bridging and un-bridging water, Reputation moving on outcomes (each measured
+against a control run so ambient drift is not what is being asserted), and
 snapshot round-trips with a raid in progress.
 
 Driven in headless Chromium at phone landscape: watched a wave arrive, engage

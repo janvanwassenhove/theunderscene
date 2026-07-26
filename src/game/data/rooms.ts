@@ -106,6 +106,7 @@ export const ROOMS: RoomDef[] = [
     color: 0x5a4a3a,
     accent: 0xd8b98a,
     blurb: 'A plank over the flooded bit. Structural, mostly.',
+    effects: { bridge: { over: 'water' } },
   },
 
   // ── Punk & Ska ─────────────────────────────────────────────────────────────

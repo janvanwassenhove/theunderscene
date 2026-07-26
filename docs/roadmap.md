@@ -42,8 +42,6 @@ These exist as data (`src/game/data/`) and need engine work, not design work:
   described in `enemies.ts` and belong to Phase 4.
 - **Ranged behaviour** — declared on the enemy schema, unused; every intruder
   currently closes to melee.
-- **Rooms** — Merch Stand is declared with no engine behaviour until water can be
-  bridged.
 - **Spells** — Viral Moment works but is not granted anywhere in Campaign 0.
 
 ## Art pipeline
