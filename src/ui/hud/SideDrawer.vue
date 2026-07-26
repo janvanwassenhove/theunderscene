@@ -5,7 +5,7 @@ import type { HudSnapshot } from '../../game/core/game'
 defineProps<{ hud: HudSnapshot }>()
 const emit = defineEmits<{ (e: 'select', id: number): void }>()
 
-type Tab = 'goals' | 'crew' | 'log'
+type Tab = 'goals' | 'crew' | 'raid' | 'log'
 const open = ref(true)
 const tab = ref<Tab>('goals')
 
@@ -28,7 +28,7 @@ function stamp(at: number): string {
     <div v-if="open" class="panel zine">
       <div class="tabs">
         <button
-          v-for="t in (['goals', 'crew', 'log'] as Tab[])"
+          v-for="t in (['goals', 'crew', 'raid', 'log'] as Tab[])"
           :key="t"
           class="tap tab stencil"
           :class="{ on: tab === t }"
@@ -67,6 +67,25 @@ function stamp(at: number): string {
               <span class="bar loy"><i :style="{ width: `${c.loyalty}%` }" /></span>
             </span>
           </button>
+        </template>
+
+        <template v-else-if="tab === 'raid'">
+          <p v-if="hud.enemies.length === 0" class="empty mono">
+            Nobody upstairs is interested in you yet. Enjoy it.
+          </p>
+          <div v-for="e in hud.enemies" :key="e.id" class="intruder">
+            <div class="goal-top">
+              <span>{{ e.name }}</span>
+              <span class="mono">{{ e.state }}</span>
+            </div>
+            <div class="meter"><span class="bad-fill" :style="{ width: `${(e.hp / e.maxHp) * 100}%` }" /></div>
+          </div>
+          <p v-if="hud.captives > 0" class="empty mono">
+            {{ hud.captives }} held in the Contract Office. A Signing Room turns them.
+          </p>
+          <p v-if="hud.captured > 0" class="empty mono">
+            {{ hud.captured }} of yours signed away. Clear the level to get them back.
+          </p>
         </template>
 
         <template v-else>
@@ -150,6 +169,13 @@ function stamp(at: number): string {
   display: block;
   height: 100%;
   background: var(--accent-2);
+}
+.bad-fill {
+  background: var(--accent) !important;
+}
+.intruder {
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
 }
 .goal.done .meter span {
   background: var(--good);

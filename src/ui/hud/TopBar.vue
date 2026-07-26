@@ -36,6 +36,10 @@ const vaultLabel = computed(() =>
       <span class="val mono">{{ hud.population }}/{{ hud.capacity }}</span>
     </div>
 
+    <span v-if="hud.enemies.length > 0" class="threat mono">
+      ⚠ {{ hud.enemies.length }}
+    </span>
+
     <span class="clock mono">{{ clock }}</span>
 
     <div class="speeds">
@@ -102,6 +106,24 @@ const vaultLabel = computed(() =>
 .cap {
   font-size: 10px;
   color: rgba(239, 230, 212, 0.45);
+}
+.threat {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 4px 8px;
+  color: var(--ink);
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .threat {
+    animation: none;
+  }
 }
 .clock {
   margin-left: auto;

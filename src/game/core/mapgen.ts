@@ -99,11 +99,16 @@ export function generateMap(def: LevelDef): GeneratedMap {
   // The starting chamber, owned from the off.
   carveRect(grid, def.heart.x, def.heart.y, 7, 5, true)
 
-  // A Booking Agent's Door a short dig away — reachable, not free.
+  // A Booking Agent's Door, off to one side, joined to the chamber by a short
+  // corridor. The corridor is not optional: everyone uses this door — your
+  // recruits and the industry alike — and a door nothing can walk out of is
+  // just a decorated dead end.
   const doorTiles: { x: number; y: number }[] = []
   const doorX = Math.min(grid.width - 3, def.heart.x + 6)
   const doorY = def.heart.y
-  carveRect(grid, doorX, doorY, 1, 1, false)
+  for (let x = def.heart.x; x <= doorX; x++) {
+    carveRect(grid, x, doorY, 1, 1, true)
+  }
   doorTiles.push({ x: doorX, y: doorY })
   grid.reveal(doorX, doorY, 1)
 

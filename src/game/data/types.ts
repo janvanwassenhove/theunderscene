@@ -132,6 +132,20 @@ export type Objective =
   | { kind: 'creatures'; amount: number; label: string }
   | { kind: 'room'; room: string; tiles: number; label: string }
   | { kind: 'survive'; seconds: number; label: string }
+  | { kind: 'defeat'; enemy: string; count: number; label: string }
+
+/**
+ * A scheduled incursion. Intruders come in through the Booking Agent's Door —
+ * the same door everyone else uses — which is what makes sealing it with Sold
+ * Out an actual decision rather than a novelty.
+ */
+export interface RaidWave {
+  /** Seconds into the level. */
+  at: number
+  enemies: { enemy: string; count: number }[]
+  /** Shown as an alert when the wave arrives. */
+  announce: string
+}
 
 export interface LevelHint {
   /** Fires once when the condition first becomes true. */
@@ -171,6 +185,7 @@ export interface LevelDef {
   spells: string[]
   objectives: Objective[]
   hints: LevelHint[]
+  raids: RaidWave[]
 }
 
 export interface CampaignDef {

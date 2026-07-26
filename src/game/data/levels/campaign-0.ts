@@ -60,6 +60,8 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
         text: 'Beds set your population cap. A Booking Agent\'s Door brings the population.',
       },
     ],
+    // Level 1 teaches the loop unmolested — nobody has heard of you yet.
+    raids: [],
   },
   {
     id: 'c0-l2',
@@ -106,6 +108,30 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
         when: { kind: 'elapsed', seconds: 240 },
         text: 'Buzz decays. Turtling is not a strategy, it is just a slower loss.',
       },
+      {
+        when: { kind: 'elapsed', seconds: 100 },
+        text: 'Intruders come in through your door. Sold Out seals it — while it lasts.',
+      },
+    ],
+    raids: [
+      {
+        at: 150,
+        enemies: [{ enemy: 'ar-scout', count: 1 }],
+        announce: 'An A&R Scout is downstairs. They are here to sign someone, not to listen.',
+      },
+      {
+        at: 330,
+        enemies: [{ enemy: 'ar-scout', count: 2 }],
+        announce: 'Two more scouts. Word really did get out.',
+      },
+      {
+        at: 500,
+        enemies: [
+          { enemy: 'noise-inspector', count: 1 },
+          { enemy: 'ar-scout', count: 1 },
+        ],
+        announce: 'Noise Complaint Inspector on site, clipboard already out.',
+      },
     ],
   },
   {
@@ -136,12 +162,12 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
       { creature: 'roadie-ogre', count: 3 },
       { creature: 'merch-imp', count: 1 },
     ],
-    rooms: [...CORE_ROOMS, 'horn-alcove'],
-    spells: ['callback', 'backstage-pass', 'fast-forward', 'mosh-pit'],
+    rooms: [...CORE_ROOMS, 'horn-alcove', 'contract-office', 'signing-room'],
+    spells: ['callback', 'backstage-pass', 'fast-forward', 'mosh-pit', 'encore', 'sold-out'],
     objectives: [
-      { kind: 'royalties', amount: 2500, label: 'Bank 2500 Royalties' },
-      { kind: 'creatures', amount: 12, label: 'Get 12 creatures on the roster' },
-      { kind: 'survive', seconds: 480, label: 'Hold the basement for 8 minutes' },
+      { kind: 'royalties', amount: 1800, label: 'Bank 1800 Royalties' },
+      { kind: 'creatures', amount: 10, label: 'Get 10 creatures on the roster' },
+      { kind: 'defeat', enemy: 'eviction-warlord', count: 1, label: 'See off the Eviction Warlord' },
     ],
     hints: [
       {
@@ -149,8 +175,40 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
         text: 'Practice Space raises stats over time — it costs Royalties per session.',
       },
       {
-        when: { kind: 'elapsed', seconds: 300 },
-        text: 'The Eviction Warlord arrives in a later build. Bank the money anyway.',
+        when: { kind: 'elapsed', seconds: 120 },
+        text: 'A Contract Office holds beaten intruders. A Signing Room talks them round.',
+      },
+      {
+        when: { kind: 'elapsed', seconds: 330 },
+        text: 'Your landlord is on his way down. Get everyone in one place — Callback helps.',
+      },
+    ],
+    raids: [
+      {
+        at: 120,
+        enemies: [{ enemy: 'ar-scout', count: 2 }],
+        announce: 'Scouts again. They have your address now.',
+      },
+      {
+        at: 260,
+        enemies: [
+          { enemy: 'critique-cleric', count: 1 },
+          { enemy: 'ar-scout', count: 1 },
+        ],
+        announce: 'A critic came down. Unpaid, unasked, unbearable.',
+      },
+      {
+        at: 400,
+        enemies: [
+          { enemy: 'noise-inspector', count: 1 },
+          { enemy: 'playlist-paladin', count: 1 },
+        ],
+        announce: 'Corporate radio is in the building. Kill the aura first.',
+      },
+      {
+        at: 480,
+        enemies: [{ enemy: 'eviction-warlord', count: 1 }],
+        announce: 'THE LANDLORD IS HERE. He has questions about the hole.',
       },
     ],
   },

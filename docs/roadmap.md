@@ -9,15 +9,17 @@ this on my phone" is the bar for done, not "the code is merged".
 | Phase | Deliverable | Status |
 |---|---|---|
 | **0** | Engine skeleton: grid, camera, dig/build, PWA shell, IndexedDB save/load | **done** — see `CHANGELOG-phase-0.md` |
-| **1** | Campaign 0 vertical slice: core rooms, core creatures, first enemy, spellcasting, Eviction Warlord mini-boss | next |
-| **2** | Punk/Ska + Metal wings, expanded enemy roster, full spell list, Reputation and Loyalty systems | planned |
+| **1** | Campaign 0 vertical slice: core rooms, core creatures, first enemy, spellcasting, Eviction Warlord mini-boss | **done** — see `CHANGELOG-phase-1.md` |
+| **2** | Punk/Ska + Metal wings, expanded enemy roster, full spell list, Reputation and Loyalty systems | next |
 | **3** | Shoegaze + Hip-Hop wings, Underscene Map meta-progression, Cypher and synergy sub-mechanics | planned |
 | **4** | Electronic + Folk wings, The Algorithm finale, Mixing Board mechanic | planned |
 | **5** | Performance pass, PWA install/offline hardening, audio (Howler + wing music), art to final fidelity | planned |
 
 Phase 0 already ships a partial Phase 3 item — the Underscene Map hub exists so
 all eight campaigns are visible from the start, with unbuilt wings shown as
-locked pins carrying their design-doc tagline.
+locked pins carrying their design-doc tagline. Phase 1 shipped the whole enemy
+roster rather than the one type the plan called for, so Phase 2's enemy work is
+behaviour and balance rather than new content.
 
 ## Campaigns
 
@@ -36,12 +38,13 @@ locked pins carrying their design-doc tagline.
 
 These exist as data (`src/game/data/`) and need engine work, not design work:
 
-- **Enemies** — full roster plus the three-phase final boss in `enemies.ts`.
-  Nothing spawns them yet.
-- **Rooms** — Contract Office, Signing Room and Merch Stand are declared with no
-  engine behaviour until captives and water bridging exist.
-- **Spells** — Sold Out seals a door but nothing walks through doors yet; Viral
-  Moment works but is not granted in Campaign 0.
+- **The final boss** — the three phases of the Streaming Algorithm Overlord are
+  described in `enemies.ts` and belong to Phase 4.
+- **Ranged behaviour** — declared on the enemy schema, unused; every intruder
+  currently closes to melee.
+- **Rooms** — Merch Stand is declared with no engine behaviour until water can be
+  bridged.
+- **Spells** — Viral Moment works but is not granted anywhere in Campaign 0.
 
 ## Art pipeline
 

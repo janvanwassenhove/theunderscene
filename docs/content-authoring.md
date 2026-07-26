@@ -61,6 +61,25 @@ jobs it will take; `build` (`squat` / `tall` / `wisp`) picks the placeholder
 silhouette and is also the shape note for the eventual art brief. `barks` are
 placeholder copy — final lines go through the voice guide in a separate pass.
 
+## Adding an enemy
+
+Append to `ENEMIES` in `enemies.ts`, then list it in a level's `raids`.
+`target` decides what it walks towards when nothing is in its face (`vault`,
+`venue` or `creatures`), `aggro` is how close a creature has to get before it
+breaks off to fight, and `behaviour` is its gimmick:
+
+| behaviour | does |
+|---|---|
+| `melee` | fights, and pulls down a room tile at a time when it reaches one |
+| `capture` | stands next to a creature and signs them after `captureSeconds` of contact |
+| `drain` | siphons Buzz continuously while it is in the basement |
+| `timer` | counts down and applies a room debuff if not intercepted, then leaves |
+| `curse` | halves a creature's work rate for a duration |
+| `ranged` | declared, not yet implemented |
+
+`convertSeconds` is how long a Signing Room needs to talk that intruder round
+once it has been beaten and dragged to a Contract Office.
+
 ## Adding a level
 
 Add a `LevelDef` to a file in `levels/`, then list its id in the campaign's
@@ -68,7 +87,24 @@ Add a `LevelDef` to a file in `levels/`, then list its id in the campaign's
 seed always digs the same basement — change the seed to reroll the layout.
 
 `objectives` support `royalties`, `buzz`, `creatures`, `room` (N tiles of a given
-room) and `survive` (N seconds). All of them must be met to clear the level.
+room), `survive` (N seconds) and `defeat` (N of a given enemy seen off). All of
+them must be met to clear the level.
+
+`raids` is the incursion schedule. Each wave is a time in seconds, the intruders
+it brings, and the line announced when it lands:
+
+```ts
+raids: [
+  {
+    at: 150,
+    enemies: [{ enemy: 'ar-scout', count: 1 }],
+    announce: 'An A&R Scout is downstairs. They are here to sign someone.',
+  },
+]
+```
+
+Waves arrive through the Booking Agent's Door. If every door is sealed when a
+wave is due, it waits outside rather than being skipped.
 
 `hints` fire once each, as a toast, when their `when` condition first becomes
 true. Campaign 0 doubles as the tutorial, so this is where the teaching lives —

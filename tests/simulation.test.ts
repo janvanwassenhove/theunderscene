@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation } from '../src/game/core/simulation'
+import { findPath } from '../src/game/core/pathfinding'
 import { CAMPAIGN_0_LEVELS } from '../src/game/data/levels/campaign-0'
 import { TileKind } from '../src/game/data/types'
 import type { LevelDef } from '../src/game/data/types'
@@ -206,5 +207,26 @@ describe('Spells', () => {
     const sim = new Simulation(LEVEL)
     sim.buzz = 500
     expect(sim.castSpell('viral-moment')).toBe(false)
+  })
+})
+
+describe('Level connectivity', () => {
+  it("joins the Booking Agent's Door to the starting chamber", () => {
+    // Everyone arrives through that door — recruits and intruders both — so a
+    // door with no route into the basement strands them where they spawn.
+    for (const def of CAMPAIGN_0_LEVELS) {
+      const sim = new Simulation(def)
+      let door: { x: number; y: number } | null = null
+      for (let y = 0; y < sim.grid.height && !door; y++) {
+        for (let x = 0; x < sim.grid.width && !door; x++) {
+          const instance = sim.rooms.get(sim.grid.roomId[sim.grid.idx(x, y)]!)
+          if (instance?.def === 'booking-door') door = { x, y }
+        }
+      }
+      expect(door, `${def.id} has no door`).not.toBeNull()
+
+      const route = findPath(sim.grid, door!, def.heart)
+      expect(route, `${def.id}: no route from the door to the heart`).not.toBeNull()
+    }
   })
 })

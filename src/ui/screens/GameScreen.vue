@@ -19,6 +19,7 @@ const hud = shallowRef<HudSnapshot | null>(null)
 const toasts = ref<Toast[]>([])
 const menuOpen = ref(false)
 const won = ref(false)
+const lost = ref(false)
 const booting = ref(true)
 const settings = ref<Settings>({ sound: true, reducedMotion: false, showFps: false })
 
@@ -31,12 +32,12 @@ const selected = computed(() => {
   return snapshot.creatures.find((c) => c.id === snapshot.selectedId) ?? null
 })
 
-function pushToast(text: string) {
+function pushToast(text: string, alert = false) {
   const id = ++toastId
-  toasts.value = [...toasts.value, { id, text }].slice(-3)
+  toasts.value = [...toasts.value, { id, text, alert }].slice(-3)
   window.setTimeout(() => {
     toasts.value = toasts.value.filter((t) => t.id !== id)
-  }, 6000)
+  }, alert ? 8000 : 6000)
 }
 
 onMounted(async () => {
@@ -46,8 +47,12 @@ onMounted(async () => {
     hud.value = s
   }
   instance.onHint = (text) => pushToast(text)
+  instance.onAlert = (text) => pushToast(text, true)
   instance.onWin = () => {
     won.value = true
+  }
+  instance.onLose = () => {
+    lost.value = true
   }
   await instance.start(canvas.value!, props.level, props.snapshot ?? undefined)
   game = instance
@@ -169,8 +174,22 @@ function finishLevel() {
 
     <Sheet v-if="won" title="That is the level" @close="finishLevel">
       <p>Every objective cleared. The landlord remains unhappy, which is the natural order.</p>
+      <p v-if="hud && hud.captured > 0" class="mono small">
+        {{ hud.captured }} signed-away creature(s) tore up the contract and came back.
+      </p>
       <template #actions>
         <button class="primary" @click="finishLevel">Back to the map</button>
+      </template>
+    </Sheet>
+
+    <Sheet v-if="lost && !won" title="Nobody left" @close="restart">
+      <p>
+        The basement is empty. No roster, no show, no argument about who is the most punk. Losing a
+        level costs you nothing but the time — run it again.
+      </p>
+      <template #actions>
+        <button class="primary" @click="restart">Run it again</button>
+        <button @click="emit('exit')">Back to the map</button>
       </template>
     </Sheet>
   </div>

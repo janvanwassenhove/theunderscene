@@ -2,6 +2,7 @@ import { Application, Container, Sprite, Text, TextStyle, type Texture } from 'p
 import { TileKind } from '../data/types'
 import { room as roomDef } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
+import { enemy as enemyDef } from '../data/enemies'
 import { wingTheme } from '../data/wings'
 import type { Creature, Simulation } from '../core/simulation'
 import { buildAtlas, CELL_ANCHOR, type Atlas } from './atlas'
@@ -15,12 +16,16 @@ interface TileSprites {
   pile?: Sprite
 }
 
-interface CreatureView {
+/** One on-screen body — creature or intruder, they render the same way. */
+interface ActorView {
   root: Container
   body: Sprite
   face: Sprite
   shadow: Sprite
   carry: Sprite
+  barBg: Sprite
+  barFill: Sprite
+  threat?: Sprite
   bark?: Text
 }
 
@@ -42,7 +47,8 @@ export class WorldRenderer {
   private sortLayer = new Container()
   private ghostLayer = new Container()
   private tiles: TileSprites[] = []
-  private creatureViews = new Map<number, CreatureView>()
+  private creatureViews = new Map<number, ActorView>()
+  private enemyViews = new Map<number, ActorView>()
   private selectionSprite?: Sprite
   private cursorSprite?: Sprite
   private sim!: Simulation
@@ -98,6 +104,7 @@ export class WorldRenderer {
 
   destroy(): void {
     this.creatureViews.clear()
+    this.enemyViews.clear()
     this.app?.destroy(false, { children: true, texture: true })
   }
 
@@ -289,7 +296,8 @@ export class WorldRenderer {
       alive.add(c.id)
       let view = this.creatureViews.get(c.id)
       if (!view) {
-        view = this.createCreatureView(c)
+        const def = creatureDef(c.def)
+        view = this.createActorView(def.build, def.color, def.accent, false)
         this.creatureViews.set(c.id, view)
       }
       const { sx, sy } = tileToScreen(c.x, c.y)
@@ -297,9 +305,11 @@ export class WorldRenderer {
       view.root.zIndex = depth(c.x, c.y) + 4
       view.carry.visible = c.carrying > 0
       const working = c.state === 'digging' || c.state === 'hauling' || c.state === 'training'
+      const fighting = c.state === 'fighting'
       // A tiny bob while working: cheap, and it stops the basement looking dead.
-      view.body.y = working ? Math.sin(this.sim.elapsed * 9 + c.id) * 2 : 0
+      view.body.y = working || fighting ? Math.sin(this.sim.elapsed * (fighting ? 14 : 9) + c.id) * 2 : 0
       view.face.y = view.body.y
+      this.setBar(view, c.hp / c.maxHp, 0x7fd6a2)
       this.syncBark(c, view)
     }
 
@@ -308,33 +318,98 @@ export class WorldRenderer {
       view.root.destroy({ children: true })
       this.creatureViews.delete(id)
     }
+
+    this.syncEnemies()
   }
 
-  private createCreatureView(c: Creature): CreatureView {
-    const def = creatureDef(c.def)
+  private syncEnemies(): void {
+    const alive = new Set<number>()
+    for (const e of this.sim.enemies) {
+      alive.add(e.id)
+      let view = this.enemyViews.get(e.id)
+      if (!view) {
+        const def = enemyDef(e.def)
+        view = this.createActorView(def.build, def.color, def.accent, true)
+        this.enemyViews.set(e.id, view)
+      }
+      const { sx, sy } = tileToScreen(e.x, e.y)
+      view.root.position.set(sx, sy)
+      view.root.zIndex = depth(e.x, e.y) + 4
+      view.carry.visible = e.carrying > 0
+      // Beaten intruders lie down; captives sit quietly in the Contract Office.
+      const down = e.state === 'downed'
+      view.body.rotation = down ? 1.3 : 0
+      view.face.visible = !down
+      view.root.alpha = e.state === 'captive' ? 0.65 : 1
+      if (view.threat) view.threat.visible = !down && e.state !== 'captive'
+      this.setBar(view, e.hp / e.maxHp, 0xff4d5a)
+    }
+
+    for (const [id, view] of this.enemyViews) {
+      if (alive.has(id)) continue
+      view.root.destroy({ children: true })
+      this.enemyViews.delete(id)
+    }
+  }
+
+  /** Health bars only appear once something has actually been hit. */
+  private setBar(view: ActorView, ratio: number, tint: number): void {
+    const show = ratio < 0.999
+    view.barBg.visible = show
+    view.barFill.visible = show
+    if (!show) return
+    view.barFill.scale.x = Math.max(0, Math.min(1, ratio))
+    view.barFill.tint = tint
+  }
+
+  private createActorView(
+    build: 'squat' | 'tall' | 'wisp',
+    color: number,
+    accent: number,
+    isEnemy: boolean,
+  ): ActorView {
     const root = new Container()
     const shadow = new Sprite(this.atlas.shadow)
     const bodyTexture =
-      def.build === 'tall' ? this.atlas.bodyTall : def.build === 'wisp' ? this.atlas.bodyWisp : this.atlas.bodySquat
+      build === 'tall' ? this.atlas.bodyTall : build === 'wisp' ? this.atlas.bodyWisp : this.atlas.bodySquat
     const body = new Sprite(bodyTexture)
     const face = new Sprite(this.atlas.face)
     const carry = new Sprite(this.atlas.coin)
+    const barBg = new Sprite(this.atlas.bar)
+    const barFill = new Sprite(this.atlas.bar)
 
-    for (const sprite of [shadow, body, face, carry]) {
+    for (const sprite of [shadow, body, face, carry, barBg, barFill]) {
       sprite.anchor.set(CELL_ANCHOR.x, CELL_ANCHOR.y)
       root.addChild(sprite)
     }
-    body.tint = def.color
-    face.tint = def.accent
+    body.tint = color
+    face.tint = accent
     carry.tint = 0xffd166
     carry.y = -BLOCK_H - 12
     carry.visible = false
 
+    barBg.y = -BLOCK_H - 22
+    barBg.tint = 0x1a1720
+    barBg.visible = false
+    barFill.y = barBg.y
+    // Anchored at the bar's left edge so it drains sideways, not inwards.
+    barFill.anchor.set(CELL_ANCHOR.x - 0.25, CELL_ANCHOR.y)
+    barFill.visible = false
+
+    let threat: Sprite | undefined
+    if (isEnemy) {
+      threat = new Sprite(this.atlas.threat)
+      threat.anchor.set(CELL_ANCHOR.x, CELL_ANCHOR.y)
+      threat.tint = 0xff4d5a
+      threat.y = -BLOCK_H - 30
+      root.addChild(threat)
+    }
+
     this.sortLayer.addChild(root)
-    return { root, body, face, shadow, carry }
+    return { root, body, face, shadow, carry, barBg, barFill, threat }
   }
 
-  private syncBark(c: Creature, view: CreatureView): void {
+  private syncBark(c: Creature, view: ActorView): void {
     if (c.bark) {
       if (!view.bark) {
         view.bark = new Text({ text: c.bark, style: this.barkStyle })

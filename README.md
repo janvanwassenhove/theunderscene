@@ -8,9 +8,10 @@ Mobile-first installable PWA. Vue 3 + Vite for the chrome, PixiJS for the
 isometric world, IndexedDB for saves. No account, no server, no network needed
 after the first load.
 
-**Status: Phase 0 complete** — engine skeleton with a playable first level of
-Campaign 0. See `docs/CHANGELOG-phase-0.md` for exactly what does and does not
-work yet.
+**Status: Phase 1 complete** — the engine, plus Campaign 0 playable end to end:
+dig, build, hire, defend against scheduled raids, and see off the Eviction
+Warlord. See `docs/CHANGELOG-phase-1.md` for exactly what does and does not work
+yet, and `docs/roadmap.md` for what comes next.
 
 ## Running it
 
@@ -74,6 +75,10 @@ Three rules the code sticks to:
 | Double tap | Recentre on the selection |
 | Long press | Inspect whatever is under your finger |
 | Spell then tap | Targeted spells use tap-to-confirm, not drag-to-aim |
+
+Defence is indirect: creatures engage anything that gets within a few tiles of
+them on their own. Callback is how you concentrate them somewhere specific, and
+Sold Out seals the door a raid is about to come through.
 
 ## Performance budget
 

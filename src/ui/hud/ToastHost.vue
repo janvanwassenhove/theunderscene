@@ -7,7 +7,9 @@ defineProps<{ toasts: Toast[] }>()
 <template>
   <div class="host">
     <TransitionGroup name="fade">
-      <p v-for="t in toasts" :key="t.id" class="toast zine">{{ t.text }}</p>
+      <p v-for="t in toasts" :key="t.id" class="toast zine" :class="{ alert: t.alert }">
+        {{ t.text }}
+      </p>
     </TransitionGroup>
   </div>
 </template>
@@ -25,6 +27,10 @@ defineProps<{ toasts: Toast[] }>()
   align-items: center;
   pointer-events: none;
   width: min(420px, 88vw);
+}
+.toast.alert {
+  border-left-color: var(--accent);
+  color: #ffd9dd;
 }
 .toast {
   margin: 0;

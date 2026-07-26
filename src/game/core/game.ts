@@ -1,6 +1,7 @@
 import { TileKind, type LevelDef } from '../data/types'
 import { room as roomDef } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
+import { enemy as enemyDef } from '../data/enemies'
 import { spell as spellDef } from '../data/spells'
 import { PointerInput, type Point } from '../input/pointerInput'
 import { WorldRenderer } from '../render/worldRenderer'
@@ -48,7 +49,7 @@ export interface HudSnapshot {
   capacity: number
   vaultCapacity: number
   elapsed: number
-  status: 'playing' | 'won'
+  status: 'playing' | 'won' | 'lost'
   paused: boolean
   speed: number
   fps: number
@@ -56,6 +57,12 @@ export interface HudSnapshot {
   objectives: { label: string; progress: number; target: number; done: boolean }[]
   events: SimEvent[]
   creatures: HudCreature[]
+  /** Intruders currently in the basement, worst first. */
+  enemies: { id: number; name: string; hp: number; maxHp: number; state: string }[]
+  /** Beaten intruders held in the Contract Office. */
+  captives: number
+  /** Creatures signed away by scouts, returned if you clear the level. */
+  captured: number
   selectedId: number | null
   inspect: TileInfo | null
   rooms: { id: string; name: string; blurb: string; costPerTile: number; color: number; affordable: boolean }[]
@@ -93,7 +100,9 @@ export class Game {
 
   onSnapshot: ((snapshot: HudSnapshot) => void) | null = null
   onHint: ((text: string) => void) | null = null
+  onAlert: ((text: string) => void) | null = null
   onWin: (() => void) | null = null
+  onLose: (() => void) | null = null
 
   async start(canvas: HTMLCanvasElement, def: LevelDef, snapshot?: SimSnapshot): Promise<void> {
     this.sim = snapshot ? Simulation.deserialize(def, snapshot) : new Simulation(def)
@@ -150,11 +159,16 @@ export class Game {
       for (const hint of this.sim.pendingHints) this.onHint?.(hint)
       this.sim.pendingHints.length = 0
     }
+    if (this.sim.pendingAlerts.length > 0) {
+      for (const alert of this.sim.pendingAlerts) this.onAlert?.(alert)
+      this.sim.pendingAlerts.length = 0
+    }
 
-    if (this.sim.status === 'won' && !this.paused) {
+    if (this.sim.status !== 'playing' && !this.paused) {
       this.paused = true
       void this.save()
-      this.onWin?.()
+      if (this.sim.status === 'won') this.onWin?.()
+      else this.onLose?.()
       this.publish()
     }
 
@@ -480,6 +494,18 @@ export class Game {
           y: c.y,
         }
       }),
+      enemies: sim.enemies
+        .filter((e) => e.state !== 'captive')
+        .map((e) => ({
+          id: e.id,
+          name: enemyDef(e.def).name,
+          hp: Math.max(0, Math.round(e.hp)),
+          maxHp: e.maxHp,
+          state: e.state,
+        }))
+        .sort((a, b) => b.maxHp - a.maxHp),
+      captives: sim.enemies.filter((e) => e.state === 'captive').length,
+      captured: sim.capturedCreatures.length,
       selectedId: this.selectedId,
       inspect: this.inspect,
       rooms: sim.def.rooms.map((id) => {

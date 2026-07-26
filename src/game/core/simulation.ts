@@ -1,16 +1,26 @@
 import { TileKind, type LevelDef, type Objective, type SpellDef } from '../data/types'
 import { room, roomOrNull } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
+import { enemy as enemyDef } from '../data/enemies'
 import { spell } from '../data/spells'
 import { Grid, type TileCoord } from './grid'
 import { generateMap } from './mapgen'
 import { findPathToNearest } from './pathfinding'
 import { Rng } from './rng'
 
-export type CreatureState = 'idle' | 'moving' | 'digging' | 'hauling' | 'eating' | 'resting' | 'training' | 'leaving'
+export type CreatureState =
+  | 'idle'
+  | 'moving'
+  | 'digging'
+  | 'hauling'
+  | 'eating'
+  | 'resting'
+  | 'training'
+  | 'fighting'
+  | 'leaving'
 
 export interface JobRef {
-  kind: 'dig' | 'haul' | 'deposit' | 'eat' | 'rest' | 'train' | 'goto'
+  kind: 'dig' | 'haul' | 'deposit' | 'eat' | 'rest' | 'train' | 'goto' | 'escort'
   /** Tile being worked on (the rock, the pile, the bed…). */
   tx: number
   ty: number
@@ -36,9 +46,40 @@ export interface Creature {
   progress: number
   speedMul: number
   buffUntil: number
+  /** Work-rate multiplier, dropped by a Bad Review. */
+  workMul: number
+  workMulUntil: number
+  /** Seconds until the next swing. */
+  attackIn: number
+  /** Enemy this creature is currently arguing with. */
+  targetEnemy: number | null
   bark: string | null
   barkUntil: number
   /** Seconds until this creature bothers to look for work again. */
+  thinkIn: number
+}
+
+export type EnemyState = 'hunting' | 'fighting' | 'stealing' | 'fleeing' | 'downed' | 'captive'
+
+export interface Enemy {
+  id: number
+  def: string
+  x: number
+  y: number
+  hp: number
+  maxHp: number
+  path: TileCoord[]
+  state: EnemyState
+  /** Creature currently being fought, if any. */
+  targetCreature: number | null
+  attackIn: number
+  /** Behaviour clock — the Inspector's countdown, mostly. */
+  timer: number
+  /** Royalties lifted from the vault, lost for good if it gets back out. */
+  carrying: number
+  /** Progress towards being talked round in a Signing Room. */
+  convert: number
+  /** Seconds until this one re-thinks where it is going. */
   thinkIn: number
 }
 
@@ -61,12 +102,20 @@ export interface ObjectiveState {
   done: boolean
 }
 
-export type SimStatus = 'playing' | 'won'
+export type SimStatus = 'playing' | 'won' | 'lost'
 
 const PAYDAY_SECONDS = 90
 const HUNGER_PER_SECOND = 100 / 300
 const FATIGUE_PER_SECOND = 100 / 420
 const BUZZ_DECAY_PER_SECOND = 0.002
+/** How close an intruder has to get before a creature downs tools and fights. */
+const DEFEND_RADIUS = 3.5
+/** Reach of a swing, in tiles. */
+const STRIKE_RANGE = 1.4
+/** Royalties an intruder can carry out of the vault in one trip. */
+const HEIST_AMOUNT = 80
+/** Seconds with an empty roster before the level is lost. */
+const WIPEOUT_SECONDS = 25
 
 /**
  * The whole game state and its tick. Deliberately free of rendering, input and
@@ -79,8 +128,15 @@ export class Simulation {
   readonly rng: Rng
 
   creatures: Creature[] = []
+  enemies: Enemy[] = []
   rooms = new Map<number, RoomInstance>()
   events: SimEvent[] = []
+  /** Intruders seen off, by enemy id. Drives `defeat` objectives. */
+  defeated: Record<string, number> = {}
+  /** Creatures signed away by scouts. They come back if you clear the level. */
+  capturedCreatures: string[] = []
+  /** Raid announcements, shown louder than hints. */
+  pendingAlerts: string[] = []
 
   royalties = 0
   buzz = 0
@@ -92,7 +148,11 @@ export class Simulation {
   readonly dirty = new Set<number>()
 
   private nextCreatureId = 1
+  private nextEnemyId = 1
   private nextRoomId = 1
+  private firedRaids = new Set<number>()
+  private venueDebuffUntil = 0
+  private emptyRosterFor = 0
   private reservedTiles = new Set<number>()
   private mealsReady = 0
   private paydayIn = PAYDAY_SECONDS
@@ -356,9 +416,24 @@ export class Simulation {
     this.tickEconomy(dt)
     for (const c of this.creatures) this.tickCreature(c, dt)
     this.creatures = this.creatures.filter((c) => c.hp > 0 && c.state !== 'leaving')
+    this.tickRaids(dt)
+    for (const e of this.enemies) this.tickEnemy(e, dt)
     this.tickAttraction(dt)
     this.tickObjectives()
     this.tickHints()
+    this.tickDefeat(dt)
+  }
+
+  private tickDefeat(dt: number): void {
+    if (this.creatures.length === 0) {
+      this.emptyRosterFor += dt
+      if (this.emptyRosterFor > WIPEOUT_SECONDS) {
+        this.status = 'lost'
+        this.log('Nobody left in the basement. The lease wins this round.', 'bad')
+      }
+    } else {
+      this.emptyRosterFor = 0
+    }
   }
 
   private tickEconomy(dt: number): void {
@@ -374,7 +449,11 @@ export class Simulation {
       if (tiles.length < def.minTiles) continue
       const e = def.effects
       if (!e) continue
-      if (e.buzz) buzzGain += e.buzz.perMinutePerTile * tiles.length * perMinute
+      if (e.buzz) {
+        // A upheld noise complaint halves everything loud for its duration.
+        const quiet = this.elapsed < this.venueDebuffUntil ? 0.5 : 1
+        buzzGain += e.buzz.perMinutePerTile * tiles.length * perMinute * quiet
+      }
       if (e.royalties) royaltyGain += e.royalties.perMinutePerTile * tiles.length * perMinute
       if (e.food) mealGain += e.food.mealsPerMinutePerTile * tiles.length * perMinute
       if (e.morale) moraleGain += e.morale.loyaltyPerMinute * perMinute
@@ -462,6 +541,12 @@ export class Simulation {
     }
     if (this.objectiveStates.length > 0 && this.objectiveStates.every((s) => s.done)) {
       this.status = 'won'
+      if (this.capturedCreatures.length > 0) {
+        this.log(
+          `${this.capturedCreatures.length} signed-away creature(s) tore up the contract and came back.`,
+          'good',
+        )
+      }
       this.log('That is the level. Somehow.', 'good')
     }
   }
@@ -478,6 +563,8 @@ export class Simulation {
         return this.roomTileCount(objective.room)
       case 'survive':
         return this.elapsed
+      case 'defeat':
+        return this.defeated[objective.enemy] ?? 0
     }
   }
 
@@ -498,6 +585,372 @@ export class Simulation {
     })
   }
 
+  // ── Raids and intruders ───────────────────────────────────────────────────
+
+  private openDoors(): TileCoord[] {
+    return (this.roomTiles.get('booking-door') ?? []).filter(
+      (t) => !this.sealedUntil.has(this.grid.idx(t.x, t.y)),
+    )
+  }
+
+  private tickRaids(dt: number): void {
+    void dt
+    this.def.raids.forEach((wave, index) => {
+      if (this.firedRaids.has(index)) return
+      if (this.elapsed < wave.at) return
+
+      const doors = this.openDoors()
+      if (doors.length === 0) {
+        // Every door sealed: they wait outside rather than skipping the wave.
+        // This is the whole point of Sold Out costing what it costs.
+        return
+      }
+
+      this.firedRaids.add(index)
+      for (const entry of wave.enemies) {
+        for (let i = 0; i < entry.count; i++) {
+          this.spawnEnemy(entry.enemy, this.rng.pick(doors))
+        }
+      }
+      this.pendingAlerts.push(wave.announce)
+      this.log(wave.announce, 'bad')
+    })
+  }
+
+  spawnEnemy(defId: string, at: TileCoord): Enemy {
+    const def = enemyDef(defId)
+    const e: Enemy = {
+      id: this.nextEnemyId++,
+      def: defId,
+      x: at.x,
+      y: at.y,
+      hp: def.hp,
+      maxHp: def.hp,
+      path: [],
+      state: 'hunting',
+      targetCreature: null,
+      attackIn: 1,
+      timer: def.behaviour.kind === 'timer' ? def.behaviour.seconds : 0,
+      carrying: 0,
+      convert: 0,
+      thinkIn: 0,
+    }
+    this.enemies.push(e)
+    this.grid.reveal(Math.round(at.x), Math.round(at.y), 1)
+    return e
+  }
+
+  private tickEnemy(e: Enemy, dt: number): void {
+    const def = enemyDef(e.def)
+
+    if (e.state === 'captive') {
+      this.tickCaptive(e, dt)
+      return
+    }
+    if (e.state === 'downed') return
+
+    e.attackIn -= dt
+    e.thinkIn -= dt
+    this.applyPassiveBehaviour(e, def, dt)
+
+    // Anything close enough gets dealt with first, whatever the plan was.
+    const nearby = this.nearestCreature(e.x, e.y, def.aggro)
+    if (nearby && e.state !== 'fleeing') {
+      e.targetCreature = nearby.id
+      e.state = 'fighting'
+    } else if (e.state === 'fighting' && !nearby) {
+      e.targetCreature = null
+      e.state = 'hunting'
+      e.path = []
+    }
+
+    if (e.state === 'fighting') {
+      const target = this.creatures.find((c) => c.id === e.targetCreature)
+      if (!target) {
+        e.state = 'hunting'
+        e.path = []
+        return
+      }
+      if (Math.hypot(target.x - e.x, target.y - e.y) <= STRIKE_RANGE) {
+        e.path = []
+        // Scouts do not fight, they sign. Contact time is the threat, so you
+        // have `captureSeconds` to get someone over there and interrupt it.
+        if (def.behaviour.kind === 'capture') {
+          if (e.timer === 0) {
+            this.log(`${def.name} is signing ${creatureDef(target.def).name}. Interrupt it.`, 'bad')
+            this.pendingAlerts.push(`${creatureDef(target.def).name} is being signed. Get someone over there.`)
+          }
+          e.timer += dt
+          if (e.timer >= def.behaviour.captureSeconds) this.captureCreature(e, target)
+        }
+        if (e.attackIn <= 0) {
+          e.attackIn = def.attackCooldown
+          this.enemyStrike(e, def, target)
+        }
+        return
+      }
+      // Break the contact and the paperwork starts over.
+      if (def.behaviour.kind === 'capture') e.timer = 0
+      if (e.path.length === 0 && e.thinkIn <= 0) {
+        e.thinkIn = 0.5
+        const found = findPathToNearest(
+          this.grid,
+          e,
+          (x, y) => Math.abs(x - Math.round(target.x)) <= 1 && Math.abs(y - Math.round(target.y)) <= 1,
+        )
+        if (found) {
+          e.path = found.path
+        } else {
+          // Can't get to them — stop staring and go back to the original plan.
+          e.targetCreature = null
+          e.state = 'hunting'
+        }
+      }
+      this.moveEnemy(e, def.speed * dt)
+      return
+    }
+
+    if (e.state === 'fleeing') {
+      if (e.path.length === 0 && e.thinkIn <= 0) {
+        e.thinkIn = 1
+        const found = findPathToNearest(this.grid, e, (x, y) => this.isRoomTile(x, y, 'booking-door'))
+        if (found) {
+          e.path = found.path
+          if (found.path.length === 0) this.escapeEnemy(e)
+        } else {
+          // No way out: it gives up and stands there, which is a fair outcome.
+          e.state = 'hunting'
+        }
+      }
+      this.moveEnemy(e, def.speed * dt)
+      if (e.path.length === 0 && this.isRoomTile(Math.round(e.x), Math.round(e.y), 'booking-door')) {
+        this.escapeEnemy(e)
+      }
+      return
+    }
+
+    // Hunting: walk towards whatever this one actually came for. If that does
+    // not exist — no vault built, no venue yet — go and find the staff instead,
+    // rather than standing in the corridor for the rest of the level.
+    if (e.path.length === 0 && e.thinkIn <= 0) {
+      e.thinkIn = 1.2
+      const goal = this.enemyGoal(def)
+      const found =
+        (goal ? findPathToNearest(this.grid, e, goal) : null) ??
+        findPathToNearest(this.grid, e, (x, y) =>
+          this.creatures.some((c) => Math.round(c.x) === x && Math.round(c.y) === y),
+        )
+      if (found) e.path = found.path
+    }
+    this.moveEnemy(e, def.speed * dt)
+
+    if (e.path.length === 0) this.enemyActOnGoal(e, def)
+  }
+
+  private enemyGoal(def: { target: string }): ((x: number, y: number) => boolean) | null {
+    if (def.target === 'vault') return (x, y) => this.isRoomTile(x, y, 'royalties-vault')
+    if (def.target === 'venue') {
+      return (x, y) => this.isRoomTile(x, y, 'basement-venue') || this.isRoomTile(x, y, 'royalties-vault')
+    }
+    return (x, y) => this.creatures.some((c) => Math.round(c.x) === x && Math.round(c.y) === y)
+  }
+
+  /** Reached whatever it wanted: rob it, or start pulling it apart. */
+  private enemyActOnGoal(e: Enemy, def: ReturnType<typeof enemyDef>): void {
+    if (e.attackIn > 0) return
+    const x = Math.round(e.x)
+    const y = Math.round(e.y)
+
+    if (this.isRoomTile(x, y, 'royalties-vault') && this.royalties > 0) {
+      e.attackIn = def.attackCooldown
+      const taken = Math.min(HEIST_AMOUNT, this.royalties)
+      this.royalties -= taken
+      e.carrying += taken
+      e.state = 'fleeing'
+      e.path = []
+      e.thinkIn = 0
+      this.log(`${def.name} helped itself to ${Math.round(taken)} Royalties.`, 'bad')
+      return
+    }
+
+    if (def.attack > 0 && this.grid.kindAt(x, y) === TileKind.Room) {
+      const instance = this.rooms.get(this.grid.roomId[this.grid.idx(x, y)]!)
+      if (instance && instance.def !== 'booking-door') {
+        e.attackIn = def.attackCooldown * 2
+        this.grid.setKind(x, y, TileKind.Floor)
+        this.grid.roomId[this.grid.idx(x, y)] = 0
+        this.dirty.add(this.grid.idx(x, y))
+        this.reindexRooms()
+        this.log(`${def.name} took a tile of your ${room(instance.def).name} apart.`, 'bad')
+      }
+    }
+  }
+
+  private applyPassiveBehaviour(e: Enemy, def: ReturnType<typeof enemyDef>, dt: number): void {
+    const behaviour = def.behaviour
+    if (behaviour.kind === 'drain') {
+      this.buzz = Math.max(0, this.buzz - behaviour.buzzPerSecond * dt)
+    } else if (behaviour.kind === 'timer') {
+      e.timer -= dt
+      if (e.timer <= 0) {
+        e.timer = behaviour.seconds
+        this.venueDebuffUntil = this.elapsed + behaviour.debuffSeconds
+        this.pendingAlerts.push('Noise complaint upheld. The Venue is quiet for a while.')
+        this.log('Noise complaint upheld. Venue output halved.', 'bad')
+        e.state = 'fleeing'
+        e.path = []
+      }
+    }
+  }
+
+  private enemyStrike(e: Enemy, def: ReturnType<typeof enemyDef>, target: Creature): void {
+    const behaviour = def.behaviour
+    const aura = this.enemies.some(
+      (other) =>
+        other.id !== e.id &&
+        enemyDef(other.def).aura &&
+        Math.hypot(other.x - e.x, other.y - e.y) <= enemyDef(other.def).aura!.radius,
+    )
+    const attackMul = aura ? 1.35 : 1
+
+    if (behaviour.kind === 'curse') {
+      target.workMul = behaviour.workRateMul
+      target.workMulUntil = this.elapsed + behaviour.seconds
+      target.bark = 'Two stars. TWO.'
+      target.barkUntil = this.elapsed + 3
+      this.log(`${creatureDef(target.def).name} got a bad review. Work rate halved.`, 'bad')
+    }
+
+    target.hp -= def.attack * attackMul
+    target.loyalty = Math.max(0, target.loyalty - 2)
+
+    // A scout is here to sign people, not hurt them; it can never land the
+    // finishing blow, only run out the clock on the contract.
+    if (behaviour.kind === 'capture') {
+      target.hp = Math.max(1, target.hp)
+      return
+    }
+
+    if (target.hp <= 0) {
+      target.hp = 0
+      this.log(`${creatureDef(target.def).name} is out of the fight.`, 'bad')
+      this.releaseJob(target)
+      target.state = 'leaving'
+    }
+  }
+
+  /**
+   * Signed away. You get them back by clearing the level, which is the whole
+   * joke — the contract is only binding while you are losing.
+   */
+  private captureCreature(e: Enemy, target: Creature): void {
+    this.capturedCreatures.push(target.def)
+    this.log(`${creatureDef(target.def).name} got signed. Clear the level to get them back.`, 'bad')
+    this.releaseJob(target)
+    target.state = 'leaving'
+    target.hp = 0
+    e.timer = 0
+    e.state = 'fleeing'
+    e.path = []
+    e.thinkIn = 0
+  }
+
+  private moveEnemy(e: Enemy, distance: number): void {
+    let remaining = distance
+    while (remaining > 0 && e.path.length > 0) {
+      const next = e.path[0]!
+      const dx = next.x - e.x
+      const dy = next.y - e.y
+      const d = Math.hypot(dx, dy)
+      if (d <= remaining) {
+        e.x = next.x
+        e.y = next.y
+        remaining -= d
+        e.path.shift()
+      } else {
+        e.x += (dx / d) * remaining
+        e.y += (dy / d) * remaining
+        remaining = 0
+      }
+    }
+  }
+
+  private escapeEnemy(e: Enemy): void {
+    if (e.carrying > 0) {
+      this.log(`${enemyDef(e.def).name} left with ${Math.round(e.carrying)} Royalties. Rude.`, 'bad')
+    }
+    this.enemies = this.enemies.filter((other) => other.id !== e.id)
+  }
+
+  /** An intruder is beaten: held for signing if there is room, else shown out. */
+  private downEnemy(e: Enemy): void {
+    const def = enemyDef(e.def)
+    this.defeated[e.def] = (this.defeated[e.def] ?? 0) + 1
+    if (e.carrying > 0) {
+      const i = this.grid.idx(Math.round(e.x), Math.round(e.y))
+      this.grid.pile[i] += Math.round(e.carrying)
+      this.dirty.add(i)
+      e.carrying = 0
+    }
+    if (this.freePrisonSlots() > 0) {
+      e.state = 'downed'
+      e.path = []
+      this.log(`${def.name} is down. Someone drag them to the Contract Office.`, 'good')
+    } else {
+      this.enemies = this.enemies.filter((other) => other.id !== e.id)
+      this.log(`${def.name} was seen off the premises.`, 'good')
+    }
+  }
+
+  private freePrisonSlots(): number {
+    const tiles = this.roomTiles.get('contract-office')?.length ?? 0
+    const capacity = tiles * (room('contract-office').effects?.prison?.capacityPerTile ?? 0)
+    const held = this.enemies.filter((e) => e.state === 'captive').length
+    return Math.max(0, capacity - held)
+  }
+
+  private tickCaptive(e: Enemy, dt: number): void {
+    const signingTiles = this.roomTileCount('signing-room')
+    if (signingTiles < room('signing-room').minTiles) return
+    const def = enemyDef(e.def)
+    e.convert += dt * (1 + signingTiles * 0.1)
+    if (e.convert < def.convertSeconds) return
+
+    this.enemies = this.enemies.filter((other) => other.id !== e.id)
+    const spot = this.roomTiles.get('signing-room')?.[0] ?? { x: Math.round(e.x), y: Math.round(e.y) }
+    const recruit = this.spawnCreature('session-player', spot)
+    recruit.loyalty = 55
+    this.log(`${def.name} signed with you instead. Turns out your genre is cooler.`, 'good')
+  }
+
+  nearestCreature(x: number, y: number, radius: number): Creature | null {
+    let best: Creature | null = null
+    let bestDist = radius
+    for (const c of this.creatures) {
+      if (c.state === 'leaving') continue
+      const d = Math.hypot(c.x - x, c.y - y)
+      if (d < bestDist) {
+        bestDist = d
+        best = c
+      }
+    }
+    return best
+  }
+
+  private nearestEnemy(x: number, y: number, radius: number): Enemy | null {
+    let best: Enemy | null = null
+    let bestDist = radius
+    for (const e of this.enemies) {
+      if (e.state === 'downed' || e.state === 'captive') continue
+      const d = Math.hypot(e.x - x, e.y - y)
+      if (d < bestDist) {
+        bestDist = d
+        best = e
+      }
+    }
+    return best
+  }
+
   // ── Creature behaviour ────────────────────────────────────────────────────
 
   private tickCreature(c: Creature, dt: number): void {
@@ -509,11 +962,15 @@ export class Simulation {
       c.loyalty = Math.max(0, c.loyalty - (def.loyaltyDecay / 60) * dt)
     }
     if (this.elapsed > c.buffUntil) c.speedMul = 1
+    if (this.elapsed > c.workMulUntil) c.workMul = 1
     if (this.elapsed > c.barkUntil) c.bark = null
+    c.attackIn -= dt
 
     if (c.loyalty <= 0 && c.state !== 'leaving') {
       this.startLeaving(c)
     }
+
+    if (c.state !== 'leaving' && this.fightIfThreatened(c, def, dt)) return
 
     c.thinkIn -= dt
     if (!c.job && c.thinkIn <= 0) {
@@ -535,7 +992,55 @@ export class Simulation {
       return
     }
 
-    this.workJob(c, def.workRate * c.speedMul * this.globalSpeedMul, dt)
+    this.workJob(c, def.workRate * c.speedMul * c.workMul * this.globalSpeedMul, dt)
+  }
+
+  /**
+   * Creatures defend the basement on their own — this is an indirect-control
+   * game, so anything within `DEFEND_RADIUS` gets dealt with without being told.
+   * Callback is how you concentrate them somewhere specific.
+   */
+  private fightIfThreatened(c: Creature, def: ReturnType<typeof creatureDef>, dt: number): boolean {
+    const threat = this.nearestEnemy(c.x, c.y, DEFEND_RADIUS)
+    if (!threat) {
+      if (c.state === 'fighting') {
+        c.state = 'idle'
+        c.targetEnemy = null
+        c.path = []
+        c.thinkIn = 0
+      }
+      return false
+    }
+
+    if (c.job) this.releaseJob(c)
+    c.state = 'fighting'
+    c.targetEnemy = threat.id
+
+    const distance = Math.hypot(threat.x - c.x, threat.y - c.y)
+    if (distance <= STRIKE_RANGE) {
+      c.path = []
+      if (c.attackIn <= 0) {
+        c.attackIn = 1.3
+        threat.hp -= def.attack * (1 + (c.level - 1) * 0.15)
+        if (threat.hp <= 0) {
+          threat.hp = 0
+          c.xp += 40
+          this.downEnemy(threat)
+        }
+      }
+      return true
+    }
+
+    if (c.path.length === 0) {
+      const found = findPathToNearest(
+        this.grid,
+        c,
+        (x, y) => Math.abs(x - Math.round(threat.x)) <= 1 && Math.abs(y - Math.round(threat.y)) <= 1,
+      )
+      if (found) c.path = found.path
+    }
+    this.advanceAlongPath(c, def.speed * c.speedMul * this.globalSpeedMul * dt)
+    return true
   }
 
   private advanceAlongPath(c: Creature, distance: number): void {
@@ -658,6 +1163,23 @@ export class Simulation {
         }
         break
       }
+      case 'escort': {
+        const downed = this.enemies.find(
+          (e) => e.state === 'downed' && Math.round(e.x) === job.tx && Math.round(e.y) === job.ty,
+        )
+        const cell = this.roomTiles.get('contract-office')?.find((t) => this.freeCell(t))
+        if (!downed || !cell) {
+          this.releaseJob(c)
+          return
+        }
+        downed.x = cell.x
+        downed.y = cell.y
+        downed.state = 'captive'
+        downed.convert = 0
+        this.log(`${enemyDef(downed.def).name} is in the Contract Office now. Paperwork pending.`, 'good')
+        this.releaseJob(c)
+        break
+      }
       case 'goto': {
         this.releaseJob(c)
         break
@@ -693,6 +1215,7 @@ export class Simulation {
     if (c.fatigue > 80 && this.roomTileCount('green-room') > 0) {
       if (this.sendTo(c, 'rest', (x, y) => this.isFreeBed(x, y, c.id))) return
     }
+    if (def.canHaul && this.tryEscortJob(c)) return
     if (def.canHaul && this.tryHaulJob(c)) return
     if (def.canDig && this.tryDigJob(c)) return
     if (c.fatigue > 45 && this.roomTileCount('green-room') > 0) {
@@ -701,6 +1224,25 @@ export class Simulation {
     if (this.roomTileCount('practice-space') >= room('practice-space').minTiles && this.royalties > 200) {
       if (this.sendTo(c, 'train', (x, y) => this.isRoomTile(x, y, 'practice-space'))) return
     }
+  }
+
+  /** Drag a downed intruder to the Contract Office, if one has a free slot. */
+  private tryEscortJob(c: Creature): boolean {
+    if (this.freePrisonSlots() <= 0) return false
+    const downed = this.enemies.filter(
+      (e) => e.state === 'downed' && !this.reservedTiles.has(this.grid.idx(Math.round(e.x), Math.round(e.y))),
+    )
+    if (downed.length === 0) return false
+
+    const found = findPathToNearest(this.grid, c, (x, y) =>
+      downed.some((e) => Math.round(e.x) === x && Math.round(e.y) === y),
+    )
+    if (!found) return false
+    this.reservedTiles.add(this.grid.idx(found.target.x, found.target.y))
+    c.path = found.path
+    c.job = { kind: 'escort', tx: found.target.x, ty: found.target.y }
+    c.state = found.path.length > 0 ? 'moving' : 'hauling'
+    return true
   }
 
   private tryHaulJob(c: Creature): boolean {
@@ -785,6 +1327,13 @@ export class Simulation {
 
   private isVaultTile(x: number, y: number): boolean {
     return this.isRoomTile(x, y, 'royalties-vault')
+  }
+
+  /** A prison tile with nobody already sitting on it. */
+  private freeCell(tile: TileCoord): boolean {
+    return !this.enemies.some(
+      (e) => e.state === 'captive' && Math.round(e.x) === tile.x && Math.round(e.y) === tile.y,
+    )
   }
 
   private isFreeBed(x: number, y: number, creatureId: number): boolean {
@@ -883,6 +1432,10 @@ export class Simulation {
       progress: 0,
       speedMul: 1,
       buffUntil: 0,
+      workMul: 1,
+      workMulUntil: 0,
+      attackIn: 0,
+      targetEnemy: null,
       bark: null,
       barkUntil: 0,
       thinkIn: this.rng.range(0, 1),
@@ -947,7 +1500,13 @@ export class Simulation {
       seen: new Uint8Array(this.grid.seen),
       rooms: [...this.rooms.values()].map((r) => ({ ...r })),
       creatures: this.creatures.map((c) => ({ ...c, path: c.path.map((p) => ({ ...p })), job: c.job ? { ...c.job } : null })),
+      enemies: this.enemies.map((e) => ({ ...e, path: e.path.map((p) => ({ ...p })) })),
+      defeated: { ...this.defeated },
+      capturedCreatures: [...this.capturedCreatures],
+      firedRaids: [...this.firedRaids],
+      venueDebuffUntil: this.venueDebuffUntil,
       nextCreatureId: this.nextCreatureId,
+      nextEnemyId: this.nextEnemyId,
       nextRoomId: this.nextRoomId,
       mealsReady: this.mealsReady,
       paydayIn: this.paydayIn,
@@ -975,6 +1534,12 @@ export class Simulation {
 
     sim.rooms = new Map(snapshot.rooms.map((r) => [r.id, { ...r }]))
     sim.creatures = snapshot.creatures.map((c) => ({ ...c }))
+    sim.enemies = (snapshot.enemies ?? []).map((e) => ({ ...e }))
+    sim.defeated = { ...(snapshot.defeated ?? {}) }
+    sim.capturedCreatures = [...(snapshot.capturedCreatures ?? [])]
+    sim.firedRaids = new Set(snapshot.firedRaids ?? [])
+    sim.venueDebuffUntil = snapshot.venueDebuffUntil ?? 0
+    sim.nextEnemyId = snapshot.nextEnemyId ?? 1
     sim.elapsed = snapshot.elapsed
     sim.royalties = snapshot.royalties
     sim.buzz = snapshot.buzz
@@ -1004,7 +1569,7 @@ export class Simulation {
   }
 }
 
-export const SNAPSHOT_VERSION = 2
+export const SNAPSHOT_VERSION = 3
 
 export interface SimSnapshot {
   version: number
@@ -1026,7 +1591,13 @@ export interface SimSnapshot {
   seen: Uint8Array
   rooms: RoomInstance[]
   creatures: Creature[]
+  enemies: Enemy[]
+  defeated: Record<string, number>
+  capturedCreatures: string[]
+  firedRaids: number[]
+  venueDebuffUntil: number
   nextCreatureId: number
+  nextEnemyId: number
   nextRoomId: number
   mealsReady: number
   paydayIn: number
@@ -1067,5 +1638,7 @@ export function objectiveTarget(objective: Objective): number {
       return objective.tiles
     case 'survive':
       return objective.seconds
+    case 'defeat':
+      return objective.count
   }
 }

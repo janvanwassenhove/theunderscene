@@ -2,7 +2,7 @@ import { Container, Graphics, Rectangle, RenderTexture, Texture, type Renderer }
 import { BLOCK_H, TILE_H, TILE_W } from './iso'
 
 /**
- * Phase 0 placeholder art.
+ * Placeholder art.
  *
  * Everything is drawn once into a single 512×128 render texture and handed out
  * as sub-textures, so the whole world renders from one base texture and Pixi can
@@ -29,6 +29,8 @@ export type AtlasKey =
   | 'shadow'
   | 'claim'
   | 'coin'
+  | 'bar'
+  | 'threat'
 
 const CELL = 64
 const COLS = 8
@@ -49,6 +51,8 @@ const KEYS: AtlasKey[] = [
   'shadow',
   'claim',
   'coin',
+  'bar',
+  'threat',
 ]
 
 function cellOrigin(index: number): { x: number; y: number } {
@@ -172,6 +176,16 @@ function drawCell(g: Graphics, key: AtlasKey, ox: number, oy: number): void {
 
     case 'coin':
       g.circle(cx, floorY - 4, 7).fill(0xffffff)
+      break
+
+    // A plain white bar, scaled and tinted per entity for health readouts.
+    case 'bar':
+      g.rect(cx - 16, floorY - 2, 32, 4).fill(0xffffff)
+      break
+
+    // Marks an intruder, so a raid reads at a glance on a small screen.
+    case 'threat':
+      g.poly([cx, floorY - 8, cx + 7, floorY + 4, cx - 7, floorY + 4]).fill(0xffffff)
       break
   }
 }

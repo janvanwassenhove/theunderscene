@@ -3,10 +3,9 @@ import type { WingId } from './types'
 /**
  * Intruder roster.
  *
- * Declared now, consumed from Phase 1 — raids, capture and the mid-boss are not
- * wired into the simulation yet. Keeping the roster here rather than in prose
- * means Phase 1 is an engine change against a fixed data shape, not a design
- * conversation restarted from a document.
+ * Intruders walk in through the Booking Agent's Door like everyone else, head
+ * for whatever `target` says they want, and pick a fight with anything that
+ * gets within `aggro` tiles on the way.
  */
 
 export type EnemyBehaviour =
@@ -23,9 +22,17 @@ export interface EnemyDef {
   hp: number
   speed: number
   attack: number
+  /** Seconds between swings. */
+  attackCooldown: number
+  /** Tiles at which it will break off and engage a creature. */
+  aggro: number
+  /** What it walks towards when nothing is in its face. */
+  target: 'creatures' | 'vault' | 'venue'
   /** Buff granted to other intruders standing nearby, if any. */
   aura?: { attackMul: number; radius: number }
   behaviour: EnemyBehaviour
+  /** Seconds a Signing Room needs to talk this one round. */
+  convertSeconds: number
   color: number
   accent: number
   build: 'squat' | 'tall' | 'wisp'
@@ -39,6 +46,10 @@ export const ENEMIES: EnemyDef[] = [
     hp: 55,
     speed: 3.2,
     attack: 5,
+    attackCooldown: 1.1,
+    aggro: 5,
+    target: 'creatures',
+    convertSeconds: 12,
     behaviour: { kind: 'capture', captureSeconds: 6 },
     color: 0x8a8f9c,
     accent: 0xdfe4ef,
@@ -51,6 +62,10 @@ export const ENEMIES: EnemyDef[] = [
     hp: 220,
     speed: 1.7,
     attack: 14,
+    attackCooldown: 1.8,
+    aggro: 4,
+    target: 'venue',
+    convertSeconds: 30,
     aura: { attackMul: 1.35, radius: 4 },
     behaviour: { kind: 'melee' },
     color: 0xb9a05a,
@@ -64,6 +79,10 @@ export const ENEMIES: EnemyDef[] = [
     hp: 90,
     speed: 2.4,
     attack: 0,
+    attackCooldown: 2,
+    aggro: 3,
+    target: 'venue',
+    convertSeconds: 26,
     behaviour: { kind: 'drain', buzzPerSecond: 1.5, range: 3 },
     color: 0x5ad6c0,
     accent: 0xa8fff0,
@@ -76,6 +95,10 @@ export const ENEMIES: EnemyDef[] = [
     hp: 70,
     speed: 2.2,
     attack: 0,
+    attackCooldown: 2,
+    aggro: 2,
+    target: 'venue',
+    convertSeconds: 14,
     behaviour: {
       kind: 'timer',
       seconds: 60,
@@ -93,6 +116,10 @@ export const ENEMIES: EnemyDef[] = [
     hp: 80,
     speed: 2.3,
     attack: 4,
+    attackCooldown: 2.4,
+    aggro: 5,
+    target: 'creatures',
+    convertSeconds: 20,
     behaviour: { kind: 'curse', workRateMul: 0.5, seconds: 30 },
     color: 0x6b5f8a,
     accent: 0xc2b3ef,
@@ -105,6 +132,10 @@ export const ENEMIES: EnemyDef[] = [
     hp: 600,
     speed: 1.9,
     attack: 26,
+    attackCooldown: 1.6,
+    aggro: 6,
+    target: 'vault',
+    convertSeconds: 60,
     behaviour: { kind: 'melee' },
     color: 0x9b3a2e,
     accent: 0xff8f6b,
