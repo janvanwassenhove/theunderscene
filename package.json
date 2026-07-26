@@ -1,0 +1,31 @@
+{
+  "name": "theunderscene",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Underscene — a dungeon-management strategy PWA about running an underground record label.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run icons && vue-tsc --noEmit && vite build",
+    "build:fast": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.2.1",
+    "pixi.js": "^8.6.6",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.8",
+    "vue-tsc": "^2.2.0"
+  }
+}

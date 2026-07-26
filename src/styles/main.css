@@ -1,0 +1,132 @@
+/*
+ * UI chrome for The Underscene.
+ *
+ * The world is rendered by Pixi; everything here is the flyer/zine layer that
+ * sits around it — photocopied blacks, tape, stencil type, hand-cut edges.
+ * It is DOM, so it costs nothing on the render budget.
+ */
+
+:root {
+  --ink: #0d0b10;
+  --ink-2: #16131b;
+  --paper: #efe6d4;
+  --paper-dim: #cdc2ad;
+  --accent: #ff4d5a;
+  --accent-2: #ffd166;
+  --good: #7fd6a2;
+  --bad: #ff6b6b;
+  --line: rgba(239, 230, 212, 0.22);
+  --dock-h: 92px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --font-display: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body);
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Every interactive control clears the 44px touch-target floor. */
+.tap {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stencil {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Torn-photocopy panel: hard edges, slight rotation, tape at the corner. */
+.zine {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+.zine--taped::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 22px;
+  width: 58px;
+  height: 18px;
+  background: rgba(239, 230, 212, 0.18);
+  transform: rotate(-3deg);
+  border: 1px dashed rgba(239, 230, 212, 0.25);
+}
+
+.paper {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r)) calc(16px + var(--safe-b))
+    calc(16px + var(--safe-l));
+  overflow: hidden;
+}
+
+.scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 180ms ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
+}
