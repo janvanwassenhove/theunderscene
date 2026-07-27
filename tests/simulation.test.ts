@@ -402,6 +402,37 @@ describe('Economy rules the data already promised', () => {
     expect(loyaltyOf(nearlyPaid)).toBeGreaterThan(loyaltyOf(brokeFlat))
   })
 
+  it('pays the crew for working, and pays them nothing for standing about', () => {
+    // Two identical basements. In one the crew has rock to break; in the other
+    // nothing is marked, so nobody is producing anything.
+    const busy = new Simulation(LEVEL)
+    const idle = new Simulation(LEVEL)
+    for (const sim of [busy, idle]) {
+      sim.royalties = 0
+      // A vault ceiling, or earnings evaporate the moment they land.
+      sim.royalties = 4000
+      sim.build('royalties-vault', findBuildableTilesOn(sim, 'royalties-vault', 8))
+      sim.royalties = 0
+    }
+    // Mark rock the crew can actually reach in the busy one only. Marking
+    // unreachable rock would leave them idle and prove nothing.
+    let marked = 0
+    for (let y = 0; y < busy.grid.height; y++) {
+      for (let x = 0; x < busy.grid.width; x++) {
+        if (!busy.grid.diggable(x, y)) continue
+        const reachable = busy.grid
+          .neighbours(x, y)
+          .some((n) => busy.grid.walkable(n.x, n.y) && busy.grid.claimed[busy.grid.idx(n.x, n.y)])
+        if (reachable && busy.designate(x, y, true)) marked++
+      }
+    }
+    expect(marked).toBeGreaterThan(0)
+
+    run(busy, 120)
+    run(idle, 120)
+    expect(busy.royalties).toBeGreaterThan(idle.royalties)
+  })
+
   it('lets a stable Buzz room bank a floor that ambient decay cannot eat', () => {
     // The Reverb Chamber says it never decays. Buzz decays proportionally, so
     // without a floor its output has a hard equilibrium far below what the

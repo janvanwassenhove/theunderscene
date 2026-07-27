@@ -33,6 +33,14 @@ const BUZZ_DECAY = 0.002
 interface Plan {
   room: string
   tiles: number
+  /**
+   * Essential rooms are the economy core and whatever the objectives name.
+   * Everything else the wing offers is optional, and the bot only buys it once
+   * the level's banking target is safely covered — otherwise it spends every
+   * surplus forever and can never satisfy a "bank N Royalties" objective, which
+   * says far more about the bot than about the level.
+   */
+  optional?: boolean
 }
 
 /** What the bot wants built, in the order it wants it. */
@@ -42,11 +50,13 @@ function plan(def: LevelDef): Plan[] {
     available.filter((id) => roomDef(id).effects?.[key] !== undefined)
 
   const wants: Plan[] = []
-  const push = (room: string | undefined, tiles: number) => {
+  const push = (room: string | undefined, tiles: number, optional = false) => {
     if (!room) return
     const existing = wants.find((w) => w.room === room)
-    if (existing) existing.tiles = Math.max(existing.tiles, tiles)
-    else wants.push({ room, tiles })
+    if (existing) {
+      existing.tiles = Math.max(existing.tiles, tiles)
+      if (!optional) existing.optional = false
+    } else wants.push({ room, tiles, optional })
   }
 
   const treasury = withEffect('treasury')[0]
@@ -89,7 +99,7 @@ function plan(def: LevelDef): Plan[] {
   // Anything else the wing offers, small, so the level's own rooms get used.
   for (const id of available) {
     if (roomDef(id).costPerTile === 0) continue
-    push(id, 4)
+    push(id, 4, true)
   }
   return wants
 }
@@ -134,12 +144,23 @@ function topUpDigging(sim: Simulation): void {
 
 function act(sim: Simulation, wants: Plan[]): void {
   topUpDigging(sim)
+  // Never spend the last of it: an empty vault stalls hauling and wages, and a
+  // refining room that needs stock on hand stops paying entirely. A real player
+  // would know not to spend below that threshold, so the bot does too.
+  const stockNeeded = Math.max(
+    0,
+    ...sim.def.rooms.map((id) => roomOrNull(id)?.effects?.refine?.requiresStock ?? 0),
+  )
+  const banking = sim.def.objectives.find((o) => o.kind === 'royalties')
+  const target = banking && banking.kind === 'royalties' ? banking.amount : 0
+  const reserve = Math.max(150, stockNeeded + 100)
   for (const want of wants) {
     const have = sim.roomTileCount(want.room)
     if (have >= want.tiles) continue
+    // Do not spend the money the level is asking you to hold.
+    if (want.optional && sim.royalties < target) continue
     const perTile = roomDef(want.room).costPerTile
-    // Never spend the last of it: an empty vault stalls hauling and wages.
-    const affordable = perTile > 0 ? Math.floor((sim.royalties - 150) / perTile) : 99
+    const affordable = perTile > 0 ? Math.floor((sim.royalties - reserve) / perTile) : 99
     if (affordable <= 0) continue
     const tiles = nearestBuildable(sim, want.room, Math.min(want.tiles - have, affordable, 6))
     if (tiles.length > 0) sim.build(want.room, tiles)
@@ -267,13 +288,20 @@ for (const l of levels) {
   }
   const rosterObj = l.objectives.find((o) => o.kind === 'creatures')
   const roster = rosterObj && rosterObj.kind === 'creatures' ? rosterObj.amount : l.capacity
-  const wages = l.startingCreatures.map((s) => creatureDef(s.creature).wage)
-  const avg = wages.reduce((a, b) => a + b, 0) / Math.max(1, wages.length)
-  const bill = (roster * avg * 60) / PAYDAY
-  const net = passive - bill
-  const verdict = net >= 0 ? 'sustainable' : `short ${Math.round(-net)}/min — funded only by finite veins`
+  const defs = l.startingCreatures.map((s) => creatureDef(s.creature))
+  const avgWage = defs.reduce((a, d) => a + d.wage, 0) / Math.max(1, defs.length)
+  const avgEarn = defs.reduce((a, d) => a + d.earnsPerMinute, 0) / Math.max(1, defs.length)
+  const bill = (roster * avgWage * 60) / PAYDAY
+  // A roster only earns while it is working, so half of it is the honest
+  // assumption for a basement that is not being micromanaged.
+  const earned = roster * avgEarn * 0.5
+  const net = passive + earned - bill
+  const verdict =
+    net >= 0
+      ? `net +${Math.round(net)}/min — sustainable`
+      : `short ${Math.round(-net)}/min — the rest comes out of finite veins`
   console.log(
-    `  ${l.id.padEnd(6)} ${String(target.amount).padStart(5)} Royalties  passive ${Math.round(passive)}/min  wages ${Math.round(bill)}/min  ${verdict}`,
+    `  ${l.id.padEnd(6)} ${String(target.amount).padStart(5)} Royalties  rooms ${Math.round(passive)}/min  crew ~${Math.round(earned)}/min  wages ${Math.round(bill)}/min  ${verdict}`,
   )
 }
 

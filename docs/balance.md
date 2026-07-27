@@ -14,9 +14,10 @@ npx vite-node scripts/balance.ts c4-l5 1800  # and a longer budget
 
 It plays each level headlessly with a deliberately unclever bot: it keeps a dig
 queue topped up, builds the rooms the objectives name plus the obvious economy —
-sizing each one from the actual arithmetic rather than a guess — and otherwise
-leaves the crew alone. It never casts a spell, never lays a trap and never
-manoeuvres in a fight.
+sizing each one from the actual arithmetic rather than a guess — treats
+everything else the wing offers as optional and refuses to spend the money a
+level is asking it to bank, and otherwise leaves the crew alone. It never casts
+a spell, never lays a trap and never manoeuvres in a fight.
 
 So it is a floor, not a ceiling. **A level the bot clears is certainly
 clearable.** A level it gets nowhere near is a threshold worth a human look.
@@ -57,38 +58,48 @@ looked like. The flat loyalty hit was the real crudeness: coming up ten
 Royalties short cost exactly as much as paying nobody anything. The hit now
 scales with the shortfall, 4 to 20.
 
-## The finding that is a design decision, not a bug
+## The economy, and what was done about it
 
-**Every level with a `Bank N Royalties` objective is structurally short.**
+The harness first measured what the roadmap had only ever asserted. Passive room
+income ran **20–50 Royalties/min** against a wage bill of **80–414/min** at the
+rosters the levels themselves demand, bridged only by the map's finite veins
+(3,900–9,650, one-off). At a 200–400/min deficit that runs out in fifteen to
+thirty minutes and never comes back. `c4-l5` asked you to bank 9000 on a map
+containing 9648 while wages ate 414 a minute. The bot cleared **10 of 36**
+levels, and almost every miss was a Royalties target.
 
-| | |
-|---|---|
-| Passive income, best economy room at 10 tiles | **20–50 Royalties/min** |
-| Wage bill at the roster the level's own objectives ask for | **80–414 Royalties/min** |
-| Total Royalties buried in the map (veins + caches) | **3,900–9,650, one-off** |
+Four directions were on the table — raise room income, cut wages, lower the
+targets, or pay creatures for working. **The roster now earns.**
 
-A creature costs about 9 Royalties a minute (wage 6–22, payday every 90s). A
-room tile earns 2–5 a minute and costs 50–95 to place. So the gap is bridged
-only by digging up the map's finite wealth, which at a 200–400/min deficit runs
-out in fifteen to thirty minutes and never comes back. `c4-l5` asks you to bank
-9000 on a map that contains 9648 while wages eat 414 a minute.
+`CreatureDef.earnsPerMinute` is Royalties brought in per minute while a creature
+is actually working — digging, hauling or rehearsing — scaled by level the same
+way its attack is, and cut by a Bad Review the same way its work rate is. Idle
+creatures earn nothing, which is the point: an idle basement is one that is
+costing you money, so keeping everybody busy is the economic loop rather than
+hiring as many as the beds allow.
 
-The bot currently clears **10 of 36** levels inside a twenty-minute budget, and
-almost every miss is a Royalties target.
+The first-pass numbers are scaled off the wage each creature already charges, so
+the ratios stay recognisable: an earner more than covers itself (economy ×1.5,
+worker ×1.15), a support roughly breaks even (×0.8), and a fighter does not and
+is carried by the rest (×0.45). The Banjo Sprite works for free and earns like
+it — a loss leader who is still worth having.
 
-This is not something to fix by guessing. There are four honest directions and
-they produce genuinely different games:
+**Result: the bot clears 17 of 36**, and the misses have changed character. What
+is left flagged is bosses the bot cannot kill because it never casts Callback or
+concentrates the crew — a limitation of the bot, not of the level — plus two
+Buzz targets. The banking objectives have largely stopped being the problem.
 
-1. **Raise passive room income** — the label becomes a business that grows.
-2. **Cut wages or lengthen the payday** — margins stay tight but survivable.
-3. **Lower the Royalties targets** — the levels stay lean and quick.
-4. **Pay creatures for working** — digging and hauling earn, so a big roster
-   pays for itself. The largest change, and the one that most makes a roster a
-   decision rather than a tax.
+These values are a first pass, not a balance pass. `npx vite-node
+scripts/balance.ts` prints the per-level arithmetic — room income, crew earnings
+at a conservative 50% duty cycle, and the wage bill — so any further tuning can
+be checked in one command.
 
-Picking one is a design call about what the game *is*, so it is left to a human.
-The harness is here so that whichever direction is chosen, one command says
-whether the numbers now work.
+### Where it is still tight
+
+The Metal wing is the outlier, 88–152/min short on `c2-l1`, `c2-l3` and `c2-l4`.
+That wing is *meant* to be hard going — thinner veins, higher wages, a roster of
+fighters who by design do not earn — so some of that is the design working. How
+much of it is too much is a play question.
 
 ## Other things worth a human eye
 

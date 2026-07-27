@@ -134,6 +134,8 @@ const DEFEND_RADIUS = 3.5
 const STRIKE_RANGE = 1.4
 /** Royalties an intruder can carry out of the vault in one trip. */
 const HEIST_AMOUNT = 80
+/** States in which a creature is producing something worth paying for. */
+const EARNING_STATES = new Set<CreatureState>(['digging', 'hauling', 'training'])
 /** Seconds with an empty roster before the level is lost. */
 const WIPEOUT_SECONDS = 25
 
@@ -672,6 +674,17 @@ export class Simulation {
       if (e.royalties) royaltyGain += e.royalties.perMinutePerTile * tiles.length * perMinute * roomMul
       if (e.food) mealGain += e.food.mealsPerMinutePerTile * tiles.length * perMinute
       if (e.morale) moraleGain += e.morale.loyaltyPerMinute * perMinute
+    }
+
+    // The roster earns its keep. Only while working — an idle basement is a
+    // basement that is costing you money, which is the whole tension.
+    for (const c of this.creatures) {
+      if (!EARNING_STATES.has(c.state)) continue
+      const def = creatureDef(c.def)
+      if (def.earnsPerMinute <= 0) continue
+      // Experience makes people better at the job, the same way it makes them
+      // better in a fight.
+      royaltyGain += def.earnsPerMinute * (1 + (c.level - 1) * 0.15) * c.workMul * perMinute
     }
 
     // A DJ Throne with somebody actually sitting on it lifts the whole basement.

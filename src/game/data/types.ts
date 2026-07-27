@@ -116,6 +116,15 @@ export interface CreatureDef {
   workRate: number
   /** Royalties owed at each payday. */
   wage: number
+  /**
+   * Royalties this one brings in per minute while it is actually working.
+   *
+   * A roster is meant to pay for itself: an earner more than covers its wage,
+   * a fighter does not and is carried by the rest. Idle creatures earn nothing,
+   * which is what makes keeping everybody busy the economic loop rather than
+   * just hiring as many as the beds allow.
+   */
+  earnsPerMinute: number
   /** Loyalty lost per minute when needs go unmet. */
   loyaltyDecay: number
   color: number

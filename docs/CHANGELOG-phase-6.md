@@ -130,9 +130,13 @@ scales its loyalty hit by the shortfall instead of charging a flat 18 whether
 you were ten Royalties short or paid nobody at all.
 
 It also measured the thing the roadmap had only ever asserted: the Royalties
-economy is short by 130–390/min on every level that asks you to bank any. That
-is a design decision rather than a bug, and `docs/balance.md` lays out the
-numbers and the four ways out without picking one.
+economy was short by 130–390/min on every level that asks you to bank any. Of
+the four ways out, the chosen one was **the roster earns its keep** —
+`CreatureDef.earnsPerMinute`, paid only while a creature is actually working, so
+an idle basement is one that costs you money. The bot went from clearing 10 of
+36 levels to 17, and what it still misses is mostly bosses it cannot fight
+rather than economies that cannot work. Numbers and method in
+`docs/balance.md`.
 
 ## Still outstanding
 
