@@ -8,17 +8,27 @@ Mobile-first installable PWA. Vue 3 + Vite for the chrome, PixiJS for the
 isometric world, IndexedDB for saves. No account, no server, no network needed
 after the first load.
 
-**Status: Phase 1 complete** — the engine, plus Campaign 0 playable end to end:
-dig, build, hire, defend against scheduled raids, and see off the Eviction
-Warlord. See `docs/CHANGELOG-phase-1.md` for exactly what does and does not work
-yet, and `docs/roadmap.md` for what comes next.
+**Status: content complete, art pending.** All eight campaigns, 27 levels, six
+genre wings and the Algorithm finale are playable end to end, with audio. Every
+sprite is still a placeholder. See `docs/CHANGELOG-phase-2-5.md` for what landed
+and `docs/roadmap.md` for what is left.
+
+| Wing | What is different about it |
+|---|---|
+| Punk & Ska | Venue Buzz spikes, merch income, brass buff pulses |
+| Metal | Echo rooms that ramp while occupied, and a wing that falls apart without its Corpsepaint Vanity |
+| Shoegaze | Buzz that never decays, and a creature intruders cannot see |
+| Hip-Hop | The Sample Vault flips banked Royalties into more — but only while you hold a float |
+| Electronic | The most Buzz and the fastest decay; the DJ Throne is one tile worth more than most rooms |
+| Folk | Everything scales with headcount, and Banjo Sprites never appear on the payroll |
+| The Algorithm | Every wing at once, against something that halves your output on a timer |
 
 ## Running it
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173/theunderscene/
-npm test           # simulation, grid and pathfinding unit tests
+npm test           # engine, content-integrity and per-wing mechanic tests
 npm run typecheck
 npm run build      # regenerates icons, typechecks, builds to dist/
 npm run preview    # serves dist/ exactly as GitHub Pages will
@@ -62,6 +72,10 @@ Three rules the code sticks to:
    headlessly in milliseconds.
 3. **Touch is not a special case.** Every pointer — finger, pen or mouse — goes
    through `src/game/input/pointerInput.ts`.
+
+Audio is generated rather than downloaded: a small WebAudio synth in
+`src/game/audio/audio.ts` produces a per-wing drone and the one-shots, so there
+is nothing to precache and nothing to fetch when offline.
 
 ## Controls
 

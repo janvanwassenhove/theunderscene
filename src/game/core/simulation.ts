@@ -53,6 +53,11 @@ export interface Creature {
   attackIn: number
   /** Enemy this creature is currently arguing with. */
   targetEnemy: number | null
+  /** Work bonus from Campfire Rings and communal creatures nearby. */
+  communalMul: number
+  /** Seconds left of a glitch, during which this one does nothing at all. */
+  glitchedFor: number
+  glitchIn: number
   bark: string | null
   barkUntil: number
   /** Seconds until this creature bothers to look for work again. */
@@ -153,6 +158,11 @@ export class Simulation {
   private firedRaids = new Set<number>()
   private venueDebuffUntil = 0
   private emptyRosterFor = 0
+  /** The Algorithm has flattened every wing until this time. */
+  private flattenUntil = 0
+  private flattenIn = 0
+  /** How long each room type has been continuously occupied, for echo ramps. */
+  private echoTime = new Map<string, number>()
   private reservedTiles = new Set<number>()
   private mealsReady = 0
   private paydayIn = PAYDAY_SECONDS
@@ -431,6 +441,7 @@ export class Simulation {
     }
 
     this.tickEconomy(dt)
+    this.tickCommunal()
     for (const c of this.creatures) this.tickCreature(c, dt)
     this.creatures = this.creatures.filter((c) => c.hp > 0 && c.state !== 'leaving')
     this.tickRaids(dt)
@@ -461,23 +472,63 @@ export class Simulation {
     let mealGain = 0
     let moraleGain = 0
 
+    // The Algorithm's flattening halves everything a wing produces until the
+    // Mixing Board re-cuts it apart again.
+    const flattened = this.elapsed < this.flattenUntil
+    const outputMul = flattened ? 0.5 : 1
+
     for (const [defId, tiles] of this.roomTiles) {
       const def = room(defId)
       if (tiles.length < def.minTiles) continue
       const e = def.effects
       if (!e) continue
+
+      // Echo rooms ramp the longer somebody is actually in them.
+      let roomMul = 1
+      if (e.echo) {
+        const occupied = this.creatures.some((c) => this.isRoomTile(Math.round(c.x), Math.round(c.y), defId))
+        const held = Math.max(0, (this.echoTime.get(defId) ?? 0) + (occupied ? dt : -dt * 2))
+        this.echoTime.set(defId, held)
+        roomMul = Math.min(e.echo.maxMul, 1 + (held / 60) * e.echo.rampPerMinute * 10)
+      }
+
+      // Sample Vault: flips banked Royalties into more of them, given stock.
+      if (e.refine && this.royalties >= e.refine.requiresStock) {
+        royaltyGain += e.refine.royaltiesPerMinute * perMinute * roomMul
+      }
+
+      // Cypher Corner: duels for stats, and Buzz off everyone watching.
+      if (e.cypher) {
+        const crowd = this.creatures.filter((c) => this.isRoomTile(Math.round(c.x), Math.round(c.y), defId))
+        if (crowd.length > 0) {
+          buzzGain += e.cypher.buzzPerMinute * perMinute * crowd.length
+          for (const c of crowd) c.xp += e.cypher.xpPerMinute * perMinute
+        }
+      }
+
       if (e.buzz) {
         // A upheld noise complaint halves everything loud for its duration.
         const quiet = this.elapsed < this.venueDebuffUntil ? 0.5 : 1
-        buzzGain += e.buzz.perMinutePerTile * tiles.length * perMinute * quiet
+        buzzGain += e.buzz.perMinutePerTile * tiles.length * perMinute * quiet * roomMul
       }
-      if (e.royalties) royaltyGain += e.royalties.perMinutePerTile * tiles.length * perMinute
+      if (e.royalties) royaltyGain += e.royalties.perMinutePerTile * tiles.length * perMinute * roomMul
       if (e.food) mealGain += e.food.mealsPerMinutePerTile * tiles.length * perMinute
       if (e.morale) moraleGain += e.morale.loyaltyPerMinute * perMinute
     }
 
-    this.buzz = Math.max(0, this.buzz + buzzGain * this.globalBuzzMul - this.buzz * BUZZ_DECAY_PER_SECOND * dt)
-    this.addRoyalties(royaltyGain)
+    // A DJ Throne with somebody actually sitting on it lifts the whole basement.
+    const throne = this.roomTiles.get('dj-throne')
+    const eliteMul =
+      throne && this.creatures.some((c) => this.isRoomTile(Math.round(c.x), Math.round(c.y), 'dj-throne'))
+        ? room('dj-throne').effects?.elite?.buzzMul ?? 1
+        : 1
+
+    this.buzz = Math.max(
+      0,
+      this.buzz + buzzGain * this.globalBuzzMul * eliteMul * outputMul - this.buzz * BUZZ_DECAY_PER_SECOND * dt,
+    )
+    this.addRoyalties(royaltyGain * outputMul)
+    this.tickFlatten(dt)
     this.mealsReady = Math.min(20, this.mealsReady + mealGain)
 
     if (moraleGain > 0) {
@@ -497,9 +548,79 @@ export class Simulation {
     }
   }
 
+  /**
+   * Finale mechanic. The Algorithm periodically flattens every wing's output
+   * into one generic debuff; a Mixing Board of the right size cuts it back out.
+   */
+  private tickFlatten(dt: number): void {
+    const cfg = this.def.flatten
+    if (!cfg) return
+
+    if (this.elapsed < this.flattenUntil) {
+      const board = this.roomTileCount('mixing-board')
+      if (board >= cfg.counterTiles) {
+        this.flattenUntil = 0
+        this.log('The Mixing Board re-cut the wings apart. Everything sounds like itself again.', 'good')
+      }
+      return
+    }
+
+    this.flattenIn -= dt
+    if (this.flattenIn > 0) return
+    this.flattenIn = cfg.everySeconds
+    this.flattenUntil = this.elapsed + cfg.seconds
+    this.pendingAlerts.push('Everything is being flattened into lo-fi beats. Get to the Mixing Board.')
+    this.log('The Algorithm flattened your wings. Output halved.', 'bad')
+  }
+
+  /**
+   * Folk's whole idea: a crowd is worth more than the sum of it. Campfire Rings
+   * and communal creatures both feed the same per-creature work multiplier, so
+   * the wings stack rather than competing.
+   */
+  private tickCommunal(): void {
+    const rings: { x: number; y: number; def: string }[] = []
+    for (const [defId, tiles] of this.roomTiles) {
+      if (!room(defId).effects?.communal) continue
+      if (tiles.length < room(defId).minTiles) continue
+      for (const t of tiles) rings.push({ ...t, def: defId })
+    }
+
+    const buffers = this.creatures.filter((c) => creatureDef(c.def).communalBuff)
+
+    for (const c of this.creatures) {
+      let bonus = 0
+
+      for (const ring of rings) {
+        const cfg = room(ring.def).effects!.communal!
+        if (Math.hypot(c.x - ring.x, c.y - ring.y) > cfg.radius) continue
+        const gathered = this.creatures.filter(
+          (other) => Math.hypot(other.x - ring.x, other.y - ring.y) <= cfg.radius,
+        ).length
+        bonus = Math.max(bonus, Math.min(cfg.maxBonus, gathered * cfg.bonusPerCreature))
+        break
+      }
+
+      for (const buffer of buffers) {
+        if (buffer.id === c.id) continue
+        const cfg = creatureDef(buffer.def).communalBuff!
+        if (Math.hypot(c.x - buffer.x, c.y - buffer.y) > cfg.radius) continue
+        const nearby = this.creatures.filter(
+          (other) => Math.hypot(other.x - buffer.x, other.y - buffer.y) <= cfg.radius,
+        ).length
+        bonus += Math.min(cfg.max, nearby * cfg.perNearby)
+      }
+
+      c.communalMul = 1 + Math.min(1.5, bonus)
+    }
+  }
+
   private runPayday(): void {
     if (this.creatures.length === 0) return
-    const owed = this.creatures.reduce((sum, c) => sum + creatureDef(c.def).wage, 0)
+    const owed = this.creatures.reduce(
+      (sum, c) => sum + (creatureDef(c.def).worksForFree ? 0 : creatureDef(c.def).wage),
+      0,
+    )
     if (this.royalties >= owed) {
       this.royalties -= owed
       for (const c of this.creatures) c.loyalty = Math.min(100, c.loyalty + 8)
@@ -524,7 +645,13 @@ export class Simulation {
     // Reputation is what makes people turn up faster: at 100 the door swings
     // at roughly half the interval it does at 0.
     const base = room('booking-door').effects?.portal?.spawnIntervalSeconds ?? 20
-    this.spawnIn = base * (1 - Math.min(100, Math.max(0, this.reputation)) / 200)
+    // Glowstick Hatcheries and Sneaker Vaults shorten the wait on top of Reputation.
+    let recruitMul = 1
+    for (const [defId, tiles] of this.roomTiles) {
+      const recruit = room(defId).effects?.recruit
+      if (recruit && tiles.length >= room(defId).minTiles) recruitMul *= recruit.intervalMul
+    }
+    this.spawnIn = base * (1 - Math.min(100, Math.max(0, this.reputation)) / 200) * Math.max(0.3, recruitMul)
 
     if (this.population >= this.capacity) return
 
@@ -550,6 +677,13 @@ export class Simulation {
 
     const door = this.rng.pick(doors)
     const spawned = this.spawnCreature(chosen, door)
+    // Cheap, fast recruitment brings people in less committed than usual.
+    for (const [defId, tiles] of this.roomTiles) {
+      const recruit = room(defId).effects?.recruit
+      if (recruit?.startingLoyalty !== undefined && tiles.length >= room(defId).minTiles) {
+        spawned.loyalty = Math.min(spawned.loyalty, recruit.startingLoyalty)
+      }
+    }
     this.log(`${creatureDef(spawned.def).name} wandered in. Nobody checked a list.`, 'good')
   }
 
@@ -680,6 +814,9 @@ export class Simulation {
     e.attackIn -= dt
     e.thinkIn -= dt
     this.applyPassiveBehaviour(e, def, dt)
+
+    // A Server Farm is furniture with an opinion: it never moves or chases.
+    if (def.structure) return
 
     // Anything close enough gets dealt with first, whatever the plan was.
     const nearby = this.nearestCreature(e.x, e.y, def.aggro)
@@ -966,6 +1103,8 @@ export class Simulation {
     let bestDist = radius
     for (const c of this.creatures) {
       if (c.state === 'leaving') continue
+      // Shoegaze creatures are simply not noticed, which is how they like it.
+      if (creatureDef(c.def).stealth) continue
       const d = Math.hypot(c.x - x, c.y - y)
       if (d < bestDist) {
         bestDist = d
@@ -996,8 +1135,30 @@ export class Simulation {
 
     c.hunger = Math.min(100, c.hunger + HUNGER_PER_SECOND * dt)
     c.fatigue = Math.min(100, c.fatigue + FATIGUE_PER_SECOND * dt)
-    if (c.hunger > 80 || c.fatigue > 92) {
-      c.loyalty = Math.max(0, c.loyalty - (def.loyaltyDecay / 60) * dt)
+    // Some wings need a specific room to stay tolerable. Metal needs a mirror.
+    const missingRoom =
+      def.needsRoom && this.roomTileCount(def.needsRoom.room) < room(def.needsRoom.room).minTiles
+    const decayMul = missingRoom ? def.needsRoom!.decayMul : 1
+    if (c.hunger > 80 || c.fatigue > 92 || missingRoom) {
+      c.loyalty = Math.max(0, c.loyalty - ((def.loyaltyDecay * decayMul) / 60) * dt)
+    }
+
+    // Synths drop out periodically unless the wing keeps them patched.
+    if (def.glitches) {
+      if (c.glitchedFor > 0) {
+        c.glitchedFor -= dt
+        if (c.glitchedFor <= 0) c.bark = null
+        return
+      }
+      c.glitchIn -= dt
+      if (c.glitchIn <= 0) {
+        c.glitchIn = def.glitches.everySeconds
+        c.glitchedFor = def.glitches.forSeconds
+        c.bark = 'Reboot. Rebooting. Rebo—'
+        c.barkUntil = this.elapsed + def.glitches.forSeconds
+        this.releaseJob(c)
+        return
+      }
     }
     if (this.elapsed > c.buffUntil) c.speedMul = 1
     if (this.elapsed > c.workMulUntil) c.workMul = 1
@@ -1014,7 +1175,11 @@ export class Simulation {
     if (!c.job && c.thinkIn <= 0) {
       c.thinkIn = 0.4 + this.rng.next() * 0.5
       this.assignJob(c)
-      if (!c.job && this.rng.chance(0.05)) {
+      // One bark per huddle: stacked speech over a crowd is unreadable.
+      const someoneElseTalking = this.creatures.some(
+        (other) => other.id !== c.id && other.bark && Math.hypot(other.x - c.x, other.y - c.y) < 4,
+      )
+      if (!c.job && !someoneElseTalking && this.rng.chance(0.05)) {
         c.bark = this.rng.pick(def.barks)
         c.barkUntil = this.elapsed + 3.5
       }
@@ -1030,7 +1195,7 @@ export class Simulation {
       return
     }
 
-    this.workJob(c, def.workRate * c.speedMul * c.workMul * this.globalSpeedMul, dt)
+    this.workJob(c, def.workRate * c.speedMul * c.workMul * c.communalMul * this.globalSpeedMul, dt)
   }
 
   /**
@@ -1039,6 +1204,24 @@ export class Simulation {
    * Callback is how you concentrate them somewhere specific.
    */
   private fightIfThreatened(c: Creature, def: ReturnType<typeof creatureDef>, dt: number): boolean {
+    if (def.refusesCombat) {
+      // Will not fight. Backs away from anything close and gets on with its day.
+      const near = this.nearestEnemy(c.x, c.y, DEFEND_RADIUS)
+      if (near && c.state !== 'moving' && c.path.length === 0) {
+        const away = findPathToNearest(
+          this.grid,
+          c,
+          (x, y) => Math.hypot(x - near.x, y - near.y) > DEFEND_RADIUS + 2 && this.grid.walkable(x, y),
+        )
+        if (away) {
+          this.releaseJob(c)
+          c.path = away.path
+          c.state = 'moving'
+        }
+      }
+      return false
+    }
+
     const threat = this.nearestEnemy(c.x, c.y, DEFEND_RADIUS)
     if (!threat) {
       if (c.state === 'fighting') {
@@ -1475,6 +1658,9 @@ export class Simulation {
       workMulUntil: 0,
       attackIn: 0,
       targetEnemy: null,
+      communalMul: 1,
+      glitchedFor: 0,
+      glitchIn: creatureDef(defId).glitches?.everySeconds ?? 0,
       bark: null,
       barkUntil: 0,
       thinkIn: this.rng.range(0, 1),

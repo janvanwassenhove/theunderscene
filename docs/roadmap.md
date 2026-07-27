@@ -10,10 +10,10 @@ this on my phone" is the bar for done, not "the code is merged".
 |---|---|---|
 | **0** | Engine skeleton: grid, camera, dig/build, PWA shell, IndexedDB save/load | **done** — see `CHANGELOG-phase-0.md` |
 | **1** | Campaign 0 vertical slice: core rooms, core creatures, first enemy, spellcasting, Eviction Warlord mini-boss | **done** — see `CHANGELOG-phase-1.md` |
-| **2** | Punk/Ska + Metal wings, expanded enemy roster, full spell list, Reputation and Loyalty systems | next |
-| **3** | Shoegaze + Hip-Hop wings, Underscene Map meta-progression, Cypher and synergy sub-mechanics | planned |
-| **4** | Electronic + Folk wings, The Algorithm finale, Mixing Board mechanic | planned |
-| **5** | Performance pass, PWA install/offline hardening, audio (Howler + wing music), art to final fidelity | planned |
+| **2** | Punk/Ska + Metal wings, expanded enemy roster, full spell list, Reputation and Loyalty systems | **done** — see `CHANGELOG-phase-2-5.md` |
+| **3** | Shoegaze + Hip-Hop wings, Underscene Map meta-progression, Cypher and synergy sub-mechanics | **done** |
+| **4** | Electronic + Folk wings, The Algorithm finale, Mixing Board mechanic | **done** |
+| **5** | Performance pass, PWA install/offline hardening, audio, art to final fidelity | **audio and perf done; art is the remaining piece** |
 
 Phase 0 already ships a partial Phase 3 item — the Underscene Map hub exists so
 all eight campaigns are visible from the start, with unbuilt wings shown as
@@ -34,15 +34,17 @@ behaviour and balance rather than new content.
 | 6 | The Kindling Hall | Folk | Communal buffs; teaches synergy ahead of the finale. |
 | 7 | The Algorithm | All | One basement housing every wing at once, against the Overlord. |
 
-## Content already declared but not yet wired
+## What is left
 
-These exist as data (`src/game/data/`) and need engine work, not design work:
-
-- **The final boss** — the three phases of the Streaming Algorithm Overlord are
-  described in `enemies.ts` and belong to Phase 4.
-- **Ranged behaviour** — declared on the enemy schema, unused; every intruder
-  currently closes to melee.
-- **Spells** — Viral Moment works but is not granted anywhere in Campaign 0.
+- **Art.** Every sprite is still a procedurally drawn placeholder at final size
+  and proportion. This is the largest remaining piece of work and it is a
+  production pipeline, not an engineering one — see below.
+- **Balance by a human.** Every level runs, is connected and is internally
+  consistent; none has been played to completion by a person. Objective
+  thresholds are educated guesses.
+- **Traps**, and `ranged` enemy behaviour, which is declared on the schema but
+  unused — every intruder currently closes to melee.
+- **On-device testing.** Still the brief's own bar for done.
 
 ## Art pipeline
 

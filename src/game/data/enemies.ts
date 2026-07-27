@@ -12,7 +12,7 @@ export type EnemyBehaviour =
   | { kind: 'capture'; captureSeconds: number }
   | { kind: 'melee' }
   | { kind: 'ranged'; range: number }
-  | { kind: 'drain'; buzzPerSecond: number; range: number }
+  | { kind: 'drain'; buzzPerSecond: number }
   | { kind: 'timer'; seconds: number; debuffRoom: string; debuffSeconds: number }
   | { kind: 'curse'; workRateMul: number; seconds: number }
 
@@ -33,6 +33,8 @@ export interface EnemyDef {
   behaviour: EnemyBehaviour
   /** Seconds a Signing Room needs to talk this one round. */
   convertSeconds: number
+  /** Structures do not walk. They sit there being a problem until destroyed. */
+  structure?: boolean
   color: number
   accent: number
   build: 'squat' | 'tall' | 'wisp'
@@ -83,7 +85,7 @@ export const ENEMIES: EnemyDef[] = [
     aggro: 3,
     target: 'venue',
     convertSeconds: 26,
-    behaviour: { kind: 'drain', buzzPerSecond: 1.5, range: 3 },
+    behaviour: { kind: 'drain', buzzPerSecond: 1.5 },
     color: 0x5ad6c0,
     accent: 0xa8fff0,
     build: 'wisp',
@@ -141,6 +143,23 @@ export const ENEMIES: EnemyDef[] = [
     accent: 0xff8f6b,
     build: 'tall',
     blurb: 'Your landlord. Recurring, escalating, and never once in a good mood.',
+  },
+  {
+    id: 'server-farm',
+    name: 'Server Farm',
+    hp: 260,
+    speed: 0,
+    attack: 0,
+    attackCooldown: 3,
+    aggro: 0,
+    target: 'venue',
+    convertSeconds: 999,
+    structure: true,
+    behaviour: { kind: 'drain', buzzPerSecond: 2.2 },
+    color: 0x2f3b3a,
+    accent: 0x6ef0c0,
+    build: 'squat',
+    blurb: 'Does not move, does not fight, just quietly drains the room. Break it.',
   },
 ]
 

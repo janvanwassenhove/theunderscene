@@ -7,6 +7,7 @@ import { PointerInput, type Point } from '../input/pointerInput'
 import { WorldRenderer } from '../render/worldRenderer'
 import { Simulation, type Creature, type SimEvent, type SimSnapshot } from './simulation'
 import { saveSlot } from './save'
+import { audio } from '../audio/audio'
 
 export type Tool =
   | { kind: 'inspect' }
@@ -86,6 +87,7 @@ export class Game {
   private accumulator = 0
   private autosaveIn = AUTOSAVE_SECONDS
   private snapshotIn = 0
+  private combatSoundIn = 0
 
   tool: Tool = { kind: 'inspect' }
   paused = false
@@ -119,11 +121,13 @@ export class Game {
       onHover: (p) => this.renderer.setCursor(p ? this.renderer.screenToTileCoord(p.x, p.y) : null),
     })
     this.applyToolMode()
+    audio.startDrone(def.wing)
     this.renderer.app.ticker.add(() => this.frame())
     this.publish()
   }
 
   destroy(): void {
+    audio.stopDrone()
     this.input?.destroy()
     this.renderer.destroy()
   }
@@ -155,11 +159,20 @@ export class Game {
     this.renderer.render()
     this.syncSelection()
 
+    // Swing sounds are driven from here rather than the simulation, which stays
+    // free of audio for the same reason it stays free of rendering.
+    this.combatSoundIn -= dt
+    if (this.combatSoundIn <= 0 && this.sim.creatures.some((c) => c.state === 'fighting')) {
+      this.combatSoundIn = 0.55
+      audio.play('hit')
+    }
+
     if (this.sim.pendingHints.length > 0) {
       for (const hint of this.sim.pendingHints) this.onHint?.(hint)
       this.sim.pendingHints.length = 0
     }
     if (this.sim.pendingAlerts.length > 0) {
+      audio.play('alert')
       for (const alert of this.sim.pendingAlerts) this.onAlert?.(alert)
       this.sim.pendingAlerts.length = 0
     }
@@ -167,6 +180,7 @@ export class Game {
     if (this.sim.status !== 'playing' && !this.paused) {
       this.paused = true
       void this.save()
+      audio.play(this.sim.status === 'won' ? 'win' : 'lose')
       if (this.sim.status === 'won') this.onWin?.()
       else this.onLose?.()
       this.publish()
@@ -245,6 +259,7 @@ export class Game {
         if (hit) {
           this.selectedId = hit.id
           this.inspect = null
+          audio.play('select')
         } else {
           this.selectedId = null
           this.inspect = this.describeTile(tile.x, tile.y)
@@ -254,7 +269,7 @@ export class Game {
       case 'dig': {
         const i = this.sim.grid.idx(tile.x, tile.y)
         const on = this.sim.grid.inBounds(tile.x, tile.y) ? !this.sim.grid.designated[i] : true
-        this.sim.designate(tile.x, tile.y, on)
+        if (this.sim.designate(tile.x, tile.y, on)) audio.play('dig')
         break
       }
       case 'build': {
@@ -349,6 +364,7 @@ export class Game {
     if (this.tool.kind !== 'build') return
     const result = this.sim.build(this.tool.room, tiles)
     if (result.placed > 0) {
+      audio.play('build')
       this.sim.log(`${roomDef(this.tool.room).name}: ${result.placed} tiles, ${result.spent} Royalties.`, 'info')
     }
   }

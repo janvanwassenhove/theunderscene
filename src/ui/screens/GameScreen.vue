@@ -10,6 +10,7 @@ import { Game, type HudSnapshot, type Tool } from '../../game/core/game'
 import type { LevelDef } from '../../game/data/types'
 import type { SimSnapshot } from '../../game/core/simulation'
 import { deleteSlot, loadSettings, saveSettings, type Settings } from '../../game/core/save'
+import { audio } from '../../game/audio/audio'
 
 const props = defineProps<{ level: LevelDef; snapshot: SimSnapshot | null }>()
 const emit = defineEmits<{ (e: 'cleared', levelId: string): void; (e: 'exit'): void }>()
@@ -42,6 +43,7 @@ function pushToast(text: string, alert = false) {
 
 onMounted(async () => {
   settings.value = await loadSettings()
+  audio.setEnabled(settings.value.sound)
   const instance = new Game()
   instance.onSnapshot = (s) => {
     hud.value = s
@@ -105,6 +107,13 @@ function setSpeed(speed: number) {
   game?.setSpeed(speed)
 }
 
+async function toggleSound() {
+  settings.value = { ...settings.value, sound: !settings.value.sound }
+  audio.setEnabled(settings.value.sound)
+  if (settings.value.sound) audio.startDrone(props.level.wing)
+  await saveSettings(settings.value)
+}
+
 async function toggleFps() {
   settings.value = { ...settings.value, showFps: !settings.value.showFps }
   await saveSettings(settings.value)
@@ -166,6 +175,7 @@ function finishLevel() {
       </p>
       <template #actions>
         <button class="primary" @click="menuOpen = false">Back to it</button>
+        <button @click="toggleSound">Sound: {{ settings.sound ? 'on' : 'off' }}</button>
         <button @click="toggleFps">{{ settings.showFps ? 'Hide' : 'Show' }} FPS</button>
         <button @click="saveAndExit">Save &amp; leave</button>
         <button @click="restart">Restart level</button>

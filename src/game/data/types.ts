@@ -54,6 +54,20 @@ export interface RoomEffects {
   morale?: { loyaltyPerMinute: number }
   /** Can be laid over flooded tiles, turning them into walkable ground. */
   bridge?: { over: 'water' }
+  /** Campfire Ring: the more creatures gathered, the bigger the shared buff. */
+  communal?: { bonusPerCreature: number; maxBonus: number; radius: number }
+  /** Rehearsal Crypt: output ramps the longer the room stays occupied. */
+  echo?: { rampPerMinute: number; maxMul: number }
+  /** Sample Vault: turns banked Royalties into more of them, if you have stock. */
+  refine?: { royaltiesPerMinute: number; requiresStock: number }
+  /** DJ Throne: one creature stationed here lifts the whole wing's Buzz. */
+  elite?: { buzzMul: number }
+  /** Glowstick Hatchery, Sneaker Vault: multiplies how fast the door swings. */
+  recruit?: { intervalMul: number; startingLoyalty?: number }
+  /** Cypher Corner: creatures duel for stats, onlookers generate Buzz. */
+  cypher?: { xpPerMinute: number; buzzPerMinute: number }
+  /** The Mixing Board: the counterplay to the Algorithm flattening your wings. */
+  counter?: 'flatten'
 }
 
 export interface RoomDef {
@@ -100,6 +114,18 @@ export interface CreatureDef {
   quirk: string
   canDig: boolean
   canHaul: boolean
+  /** Without this room, loyalty drains faster. Metal creatures care a lot. */
+  needsRoom?: { room: string; decayMul: number }
+  /** Intruders do not pick this one out of a crowd. */
+  stealth?: boolean
+  /** Will not fight; withdraws instead of engaging. */
+  refusesCombat?: boolean
+  /** Buffs nearby creatures, scaled by how many are around. */
+  communalBuff?: { perNearby: number; radius: number; max: number }
+  /** Stops working periodically unless the wing keeps it patched. */
+  glitches?: { everySeconds: number; forSeconds: number }
+  /** Works for the love of the craft: never invoiced at payday. */
+  worksForFree?: boolean
   /** Idle chatter. Placeholder copy — final pass goes through the voice guide. */
   barks: string[]
 }
@@ -188,6 +214,11 @@ export interface LevelDef {
   objectives: Objective[]
   hints: LevelHint[]
   raids: RaidWave[]
+  /**
+   * Finale only. The Algorithm periodically flattens every wing's output into
+   * one generic debuff; a Mixing Board of at least `counterTiles` clears it.
+   */
+  flatten?: { everySeconds: number; seconds: number; counterTiles: number }
 }
 
 export interface CampaignDef {
