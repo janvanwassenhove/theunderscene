@@ -149,6 +149,79 @@ describe('Combat', () => {
   })
 })
 
+describe('Ranged intruders', () => {
+  /** A tile `dx` east of the chamber, if it is dug out and in line of sight. */
+  function openLine(sim: Simulation, from: { x: number; y: number }, dx: number) {
+    for (let step = 1; step <= dx; step++) {
+      if (!sim.grid.walkable(from.x + step, from.y)) return null
+    }
+    return { x: from.x + dx, y: from.y }
+  }
+
+  it('shoots from where it stands instead of closing to melee', () => {
+    const sim = new Simulation(L1)
+    sim.creatures = sim.creatures.slice(0, 1)
+    const victim = sim.creatures[0]!
+    victim.x = L1.heart.x
+    victim.y = L1.heart.y
+
+    const spot = openLine(sim, L1.heart, 4)
+    expect(spot, 'the starting chamber is not wide enough for this test').not.toBeNull()
+    const sniper = sim.spawnEnemy('comment-sniper', spot!)
+    const hp = victim.hp
+
+    // Two seconds is not long enough to walk four tiles and swing, but it is
+    // long enough to shoot. The sniper should not have taken a step: the crew
+    // closing the gap is the crew's doing, not its own.
+    run(sim, 2)
+    expect(victim.hp).toBeLessThan(hp)
+    expect(Math.hypot(sniper.x - spot!.x, sniper.y - spot!.y)).toBeLessThan(0.01)
+  })
+
+  it('cannot shoot through rock', () => {
+    const sim = new Simulation(L1)
+    sim.creatures = sim.creatures.slice(0, 1)
+    const victim = sim.creatures[0]!
+    victim.x = L1.heart.x
+    victim.y = L1.heart.y
+
+    // Drop the sniper in solid rock well away from the chamber: it has the
+    // range, but nothing to shoot down.
+    let buried: { x: number; y: number } | null = null
+    for (let y = 0; y < sim.grid.height && !buried; y++) {
+      for (let x = 0; x < sim.grid.width && !buried; x++) {
+        if (sim.grid.walkable(x, y)) continue
+        const d = Math.hypot(x - victim.x, y - victim.y)
+        if (d > 2 && d < 5) buried = { x, y }
+      }
+    }
+    expect(buried).not.toBeNull()
+    sim.spawnEnemy('comment-sniper', buried!)
+    const hp = victim.hp
+
+    sim.tick(1 / 15)
+    sim.tick(1 / 15)
+    expect(victim.hp).toBe(hp)
+  })
+
+  it('makes the crew come to it, since it will never come to them', () => {
+    const sim = new Simulation(L1)
+    sim.creatures = sim.creatures.slice(0, 1)
+    const victim = sim.creatures[0]!
+    victim.x = L1.heart.x
+    victim.y = L1.heart.y
+
+    const spot = openLine(sim, L1.heart, 4)
+    expect(spot).not.toBeNull()
+    const before = Math.hypot(spot!.x - victim.x, spot!.y - victim.y)
+    sim.spawnEnemy('comment-sniper', spot!)
+
+    run(sim, 4)
+    const after = Math.hypot(spot!.x - victim.x, spot!.y - victim.y)
+    expect(after).toBeLessThan(before)
+  })
+})
+
 describe('Capture and conversion', () => {
   it('holds a beaten intruder and talks them round in a Signing Room', () => {
     const sim = new Simulation(L1)

@@ -122,6 +122,7 @@ export const CAMPAIGN_6_LEVELS: LevelDef[] = [
     raids: [
       { at: 140, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Scouts.' },
       { at: 300, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'critique-cleric', count: 2 }], announce: 'Radio and two critics walk into a folk wing.' },
+      { at: 380, enemies: [{ enemy: 'comment-sniper', count: 3 }], announce: 'Nobody here has ever been to a gig.' },
       { at: 460, enemies: [{ enemy: 'algorithm-wraith', count: 2 }, { enemy: 'ar-scout', count: 2 }], announce: 'Drains. It has been watching this wing especially closely.' },
       { at: 620, enemies: [{ enemy: 'playlist-paladin', count: 2 }], announce: 'Two Paladins, straight for the fire.' },
     ],
@@ -165,6 +166,7 @@ export const CAMPAIGN_6_LEVELS: LevelDef[] = [
     raids: [
       { at: 120, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'ar-scout', count: 2 }], announce: 'It starts with radio, as it always does.' },
       { at: 280, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'Hardware.' },
+      { at: 360, enemies: [{ enemy: 'comment-sniper', count: 4 }], announce: 'Four snipers. Send people, not patience.' },
       { at: 440, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'critique-cleric', count: 2 }], announce: 'And press.' },
       { at: 600, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'All of it at once, now, to see what you do.' },
     ],

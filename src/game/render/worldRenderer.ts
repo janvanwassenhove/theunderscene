@@ -3,6 +3,7 @@ import { TileKind } from '../data/types'
 import { room as roomDef } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
 import { enemy as enemyDef } from '../data/enemies'
+import { trap as trapDef } from '../data/traps'
 import { wingTheme } from '../data/wings'
 import type { Creature, Simulation } from '../core/simulation'
 import { buildAtlas, CELL_ANCHOR, type Atlas } from './atlas'
@@ -21,6 +22,7 @@ import {
 interface TileSprites {
   floor?: Sprite
   claim?: Sprite
+  trap?: Sprite
   block?: Sprite
   fleck?: Sprite
   designate?: Sprite
@@ -321,6 +323,17 @@ export class WorldRenderer {
       theme.light,
       depth(x, y) + 2,
       0.9,
+    )
+
+    // Traps sit flush with the floor and only read as live once armed.
+    const laid = this.sim.trapAt(x, y)
+    setSprite(
+      'trap',
+      laid ? (laid.armIn > 0 ? this.atlas.trapArming : this.atlas.trap) : null,
+      this.sortLayer,
+      laid ? trapDef(laid.def).accent : 0xffffff,
+      depth(x, y) + 1,
+      laid && laid.armIn > 0 ? 0.55 : 0.95,
     )
 
     setSprite('pile', grid.pile[index]! > 0 ? this.atlas.pile : null, this.sortLayer, 0xffd166, depth(x, y) + 1)

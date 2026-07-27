@@ -77,10 +77,32 @@ breaks off to fight, and `behaviour` is its gimmick:
 | `drain` | siphons Buzz continuously while it is in the basement |
 | `timer` | counts down and applies a room debuff if not intercepted, then leaves |
 | `curse` | halves a creature's work rate for a duration |
-| `ranged` | declared, not yet implemented |
+| `ranged` | attacks from `range` tiles down open ground and never closes |
 
 `convertSeconds` is how long a Signing Room needs to talk that intruder round
 once it has been beaten and dragged to a Contract Office.
+
+A `ranged` intruder needs line of sight, so a wall between it and your crew
+stops it entirely. Creatures answer one that is shooting at them however far off
+it is standing, which is the only reason a Sniper is a fight rather than an
+unanswerable nuisance.
+
+## Adding a trap
+
+Append to `TRAPS` in `traps.ts`, then list its id in a level's `traps` array —
+`CORE_TRAPS` in `defineLevel.ts` is the default set, and a wing adds its own on
+top of it. Traps go one per tile on plain ground you own, cost `cost` Royalties
+each, go live after `armSeconds`, and fire when an intruder comes within
+`trigger` tiles. Each firing spends a charge; at zero the trap is gone.
+
+| effect | does |
+|---|---|
+| `damage` | `amount` damage to every intruder within `radius` |
+| `slow` | multiplies intruder speed by `speedMul` for `seconds`, within `radius` |
+| `alarm` | hurts nobody; pulls every free creature within `radius` to the tile |
+
+Withholding traps is a level-design lever: `traps: []` on an early level means
+the tab does not appear at all.
 
 ## Adding a level
 

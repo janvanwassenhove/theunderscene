@@ -129,6 +129,24 @@ export const ENEMIES: EnemyDef[] = [
     blurb: 'Casts Bad Review. The target works at half speed and knows why.',
   },
   {
+    id: 'comment-sniper',
+    name: 'Comment Section Sniper',
+    hp: 45,
+    speed: 2.6,
+    attack: 9,
+    attackCooldown: 1.6,
+    aggro: 7,
+    target: 'creatures',
+    convertSeconds: 18,
+    // Never closes. Plinks away from six tiles back, which means the crew have
+    // to walk into it rather than waiting to be walked into.
+    behaviour: { kind: 'ranged', range: 6 },
+    color: 0x4a4f6b,
+    accent: 0x9fb0ff,
+    build: 'squat',
+    blurb: 'Fights from the back of the room and never once gets close. Go to it.',
+  },
+  {
     id: 'eviction-warlord',
     name: 'Eviction Warlord',
     hp: 600,

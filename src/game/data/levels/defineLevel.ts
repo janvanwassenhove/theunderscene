@@ -10,16 +10,17 @@ import type { LevelDef } from '../types'
  *
  * Everything remains plain data — override any field and the override wins.
  */
-export type LevelSpec = Omit<
-  LevelDef,
-  'width' | 'height' | 'heart' | 'veinDensity' | 'waterDensity' | 'cacheCount' | 'startBuzz'
-> &
-  Partial<
-    Pick<
-      LevelDef,
-      'width' | 'height' | 'heart' | 'veinDensity' | 'waterDensity' | 'cacheCount' | 'startBuzz'
-    >
-  >
+type Defaulted =
+  | 'width'
+  | 'height'
+  | 'heart'
+  | 'veinDensity'
+  | 'waterDensity'
+  | 'cacheCount'
+  | 'startBuzz'
+  | 'traps'
+
+export type LevelSpec = Omit<LevelDef, Defaulted> & Partial<Pick<LevelDef, Defaulted>>
 
 export function defineLevel(spec: LevelSpec): LevelDef {
   const width = spec.width ?? 40
@@ -34,6 +35,7 @@ export function defineLevel(spec: LevelSpec): LevelDef {
     waterDensity: spec.waterDensity ?? 0.03,
     cacheCount: spec.cacheCount ?? 5,
     startBuzz: spec.startBuzz ?? 20,
+    traps: spec.traps ?? CORE_TRAPS,
     ...spec,
   }
 }
@@ -48,6 +50,9 @@ export const CORE_ROOMS = [
   'contract-office',
   'signing-room',
 ]
+
+/** Traps any level with a raid on it can lay. Wings add their own on top. */
+export const CORE_TRAPS = ['cable-snare', 'feedback-loop', 'door-buzzer']
 
 /** The spell list a mid-campaign level would reasonably have unlocked. */
 export const CORE_SPELLS = ['callback', 'backstage-pass', 'fast-forward', 'encore', 'sold-out']

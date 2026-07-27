@@ -128,6 +128,7 @@ export const CAMPAIGN_3_LEVELS: LevelDef[] = [
     raids: [
       { at: 150, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Scouts. Plural. Still squinting.' },
       { at: 330, enemies: [{ enemy: 'algorithm-wraith', count: 2 }, { enemy: 'critique-cleric', count: 1 }], announce: 'Drains and a critic.' },
+      { at: 400, enemies: [{ enemy: 'comment-sniper', count: 2 }], announce: 'Somebody is reviewing you from the back of the room.' },
       { at: 500, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'Radio, escorting the drains.' },
     ],
   }),
@@ -168,6 +169,7 @@ export const CAMPAIGN_3_LEVELS: LevelDef[] = [
     raids: [
       { at: 130, enemies: [{ enemy: 'algorithm-wraith', count: 2 }], announce: 'It has sent two.' },
       { at: 300, enemies: [{ enemy: 'algorithm-wraith', count: 2 }, { enemy: 'ar-scout', count: 2 }], announce: 'Two more, with an escort.' },
+      { at: 380, enemies: [{ enemy: 'comment-sniper', count: 3 }], announce: 'Three of them, all anonymous, all at the back.' },
       { at: 470, enemies: [{ enemy: 'algorithm-wraith', count: 3 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'It is not going to stop sending them.' },
     ],
   }),

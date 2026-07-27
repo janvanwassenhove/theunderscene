@@ -1,5 +1,5 @@
 import type { LevelDef } from '../types'
-import { CORE_ROOMS, CORE_SPELLS, defineLevel } from './defineLevel'
+import { CORE_ROOMS, CORE_SPELLS, CORE_TRAPS, defineLevel } from './defineLevel'
 
 /**
  * Campaign 7 — The Algorithm. Every wing at once, in one basement, against the
@@ -60,6 +60,7 @@ export const CAMPAIGN_7_LEVELS: LevelDef[] = [
     ],
     rooms: ALL_WINGS,
     spells: ALL_SPELLS,
+    traps: [...CORE_TRAPS, 'blast-beat', 'strobe-pit'],
     objectives: [
       { kind: 'creatures', amount: 24, label: 'Get 24 creatures under one roof' },
       { kind: 'buzz', amount: 450, label: 'Reach 450 Buzz' },
@@ -72,6 +73,7 @@ export const CAMPAIGN_7_LEVELS: LevelDef[] = [
     raids: [
       { at: 150, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'It opens with scouts. It always opens with scouts.' },
       { at: 320, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'Radio, drains, the usual arrangement.' },
+      { at: 400, enemies: [{ enemy: 'comment-sniper', count: 3 }], announce: 'The Algorithm has learned to comment.' },
       { at: 500, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'critique-cleric', count: 2 }], announce: 'And hardware.' },
     ],
   }),
@@ -104,6 +106,7 @@ export const CAMPAIGN_7_LEVELS: LevelDef[] = [
     ],
     rooms: ALL_WINGS,
     spells: ALL_SPELLS,
+    traps: [...CORE_TRAPS, 'blast-beat', 'strobe-pit'],
     flatten: { everySeconds: 150, seconds: 45, counterTiles: 4 },
     objectives: [
       { kind: 'room', room: 'mixing-board', tiles: 4, label: 'Build The Mixing Board (4 tiles)' },
@@ -117,6 +120,7 @@ export const CAMPAIGN_7_LEVELS: LevelDef[] = [
     raids: [
       { at: 130, enemies: [{ enemy: 'algorithm-wraith', count: 2 }, { enemy: 'ar-scout', count: 2 }], announce: 'Softening you up.' },
       { at: 300, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'Hardware and radio.' },
+      { at: 380, enemies: [{ enemy: 'comment-sniper', count: 4 }], announce: 'It has learned to keep its distance too.' },
       { at: 470, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'algorithm-wraith', count: 3 }], announce: 'It is draining faster than you are earning.' },
     ],
   }),
@@ -154,6 +158,7 @@ export const CAMPAIGN_7_LEVELS: LevelDef[] = [
     ],
     rooms: ALL_WINGS,
     spells: ALL_SPELLS,
+    traps: [...CORE_TRAPS, 'blast-beat', 'strobe-pit'],
     flatten: { everySeconds: 120, seconds: 50, counterTiles: 5 },
     objectives: [
       { kind: 'defeat', enemy: 'server-farm', count: 5, label: 'Phase 1 — smash five Server Farms' },
@@ -169,6 +174,7 @@ export const CAMPAIGN_7_LEVELS: LevelDef[] = [
       { at: 90, enemies: [{ enemy: 'server-farm', count: 2 }], announce: 'PHASE ONE. It is installing itself in your walls.' },
       { at: 240, enemies: [{ enemy: 'server-farm', count: 2 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'More hardware, and drains to guard it.' },
       { at: 400, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'playlist-paladin', count: 2 }], announce: 'PHASE TWO. It is flattening everything you have built.' },
+      { at: 480, enemies: [{ enemy: 'comment-sniper', count: 5 }], announce: 'Everything it ever learned about you, shouted from the back.' },
       { at: 560, enemies: [{ enemy: 'critique-cleric', count: 3 }, { enemy: 'noise-inspector', count: 2 }], announce: 'Press and paperwork, to slow you down.' },
       {
         at: 720,

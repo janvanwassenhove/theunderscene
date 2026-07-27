@@ -121,6 +121,7 @@ export const CAMPAIGN_4_LEVELS: LevelDef[] = [
     raids: [
       { at: 140, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Scouts. They have a budget this time.' },
       { at: 300, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'critique-cleric', count: 1 }], announce: 'The landlord brought a valuer.' },
+      { at: 400, enemies: [{ enemy: 'comment-sniper', count: 2 }], announce: 'The comments have arrived in person.' },
       { at: 470, enemies: [{ enemy: 'playlist-paladin', count: 2 }], announce: 'Two Paladins. They want the whole catalogue.' },
     ],
   }),
@@ -161,6 +162,7 @@ export const CAMPAIGN_4_LEVELS: LevelDef[] = [
     raids: [
       { at: 120, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Process servers, technically.' },
       { at: 280, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'The first enforcer.' },
+      { at: 370, enemies: [{ enemy: 'comment-sniper', count: 3 }], announce: 'Snipers. They will not come to you.' },
       { at: 460, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'critique-cleric', count: 2 }], announce: 'And the second, with commentary.' },
     ],
   }),

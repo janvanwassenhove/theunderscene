@@ -3,6 +3,7 @@ import { room, roomOrNull } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
 import { enemy as enemyDef } from '../data/enemies'
 import { spell } from '../data/spells'
+import { trap, trapOrNull, type TrapDef } from '../data/traps'
 import { Grid, type TileCoord } from './grid'
 import { generateMap } from './mapgen'
 import { findPathToNearest } from './pathfinding'
@@ -78,6 +79,9 @@ export interface Enemy {
   /** Creature currently being fought, if any. */
   targetCreature: number | null
   attackIn: number
+  /** Speed multiplier, dropped by traps. */
+  speedMul: number
+  slowUntil: number
   /** Behaviour clock — the Inspector's countdown, mostly. */
   timer: number
   /** Royalties lifted from the vault, lost for good if it gets back out. */
@@ -92,6 +96,17 @@ export interface RoomInstance {
   id: number
   def: string
   tiles: number
+}
+
+/** One laid trap. Position is a whole tile — traps do not sit between them. */
+export interface Trap {
+  id: number
+  def: string
+  x: number
+  y: number
+  /** Seconds left before it will fire. */
+  armIn: number
+  charges: number
 }
 
 export interface SimEvent {
@@ -134,6 +149,7 @@ export class Simulation {
 
   creatures: Creature[] = []
   enemies: Enemy[] = []
+  traps: Trap[] = []
   rooms = new Map<number, RoomInstance>()
   events: SimEvent[] = []
   /** Intruders seen off, by enemy id. Drives `defeat` objectives. */
@@ -155,6 +171,7 @@ export class Simulation {
   private nextCreatureId = 1
   private nextEnemyId = 1
   private nextRoomId = 1
+  private nextTrapId = 1
   private firedRaids = new Set<number>()
   private venueDebuffUntil = 0
   private emptyRosterFor = 0
@@ -305,6 +322,138 @@ export class Simulation {
     return room(defId).costPerTile * tiles
   }
 
+  // ── Traps ─────────────────────────────────────────────────────────────────
+
+  trapAt(x: number, y: number): Trap | null {
+    return this.traps.find((t) => t.x === x && t.y === y) ?? null
+  }
+
+  /**
+   * Traps go on plain ground you already own — not inside rooms, where they
+   * would sit under the furniture, and not on loose Royalties waiting to be
+   * hauled. One per tile.
+   */
+  canPlaceTrap(defId: string, x: number, y: number): boolean {
+    if (!this.grid.inBounds(x, y)) return false
+    if (!this.def.traps.includes(defId)) return false
+    if (!trapOrNull(defId)) return false
+    const i = this.grid.idx(x, y)
+    if (this.grid.kindAt(x, y) !== TileKind.Floor) return false
+    if (!this.grid.claimed[i]) return false
+    if (this.grid.pile[i] > 0) return false
+    return this.trapAt(x, y) === null
+  }
+
+  placeTrap(defId: string, x: number, y: number): boolean {
+    if (!this.canPlaceTrap(defId, x, y)) return false
+    const def = trap(defId)
+    if (this.royalties < def.cost) {
+      this.log('Not enough Royalties for that. Traps are not free, sadly.', 'bad')
+      return false
+    }
+    this.royalties -= def.cost
+    this.traps.push({
+      id: this.nextTrapId++,
+      def: defId,
+      x,
+      y,
+      armIn: def.armSeconds,
+      charges: def.charges,
+    })
+    this.dirty.add(this.grid.idx(x, y))
+    return true
+  }
+
+  /** Lifts a trap and refunds half, the same deal as tearing down a room. */
+  removeTrap(x: number, y: number): boolean {
+    const existing = this.trapAt(x, y)
+    if (!existing) return false
+    this.royalties += Math.floor(trap(existing.def).cost / 2)
+    this.traps = this.traps.filter((t) => t.id !== existing.id)
+    this.dirty.add(this.grid.idx(x, y))
+    return true
+  }
+
+  private tickTraps(dt: number): void {
+    if (this.traps.length === 0) return
+    let spent = false
+    for (const t of this.traps) {
+      if (t.armIn > 0) {
+        t.armIn -= dt
+        if (t.armIn <= 0) this.dirty.add(this.grid.idx(t.x, t.y))
+        continue
+      }
+      const def = trap(t.def)
+      const tripped = this.enemies.some(
+        (e) =>
+          e.state !== 'downed' &&
+          e.state !== 'captive' &&
+          Math.hypot(e.x - t.x, e.y - t.y) <= def.trigger,
+      )
+      if (!tripped) continue
+      this.fireTrap(t, def)
+      t.charges -= 1
+      if (t.charges <= 0) {
+        spent = true
+        this.dirty.add(this.grid.idx(t.x, t.y))
+      } else {
+        t.armIn = def.armSeconds
+      }
+    }
+    if (spent) this.traps = this.traps.filter((t) => t.charges > 0)
+  }
+
+  private fireTrap(t: Trap, def: TrapDef): void {
+    const effect = def.effect
+    if (effect.kind === 'alarm') {
+      let called = 0
+      for (const c of this.creatures) {
+        if (c.state === 'leaving' || c.state === 'fighting') continue
+        if (creatureDef(c.def).refusesCombat) continue
+        if (Math.hypot(c.x - t.x, c.y - t.y) > effect.radius) continue
+        const found = findPathToNearest(
+          this.grid,
+          c,
+          (x, y) => Math.abs(x - t.x) <= 1 && Math.abs(y - t.y) <= 1 && this.grid.walkable(x, y),
+        )
+        if (!found) continue
+        this.releaseJob(c)
+        c.path = found.path
+        c.job = { kind: 'goto', tx: found.target.x, ty: found.target.y }
+        c.state = 'moving'
+        c.thinkIn = 1.5
+        called++
+      }
+      this.log(`${def.name} went off. ${called} on their way.`, called > 0 ? 'good' : 'info')
+      this.pendingAlerts.push(`${def.name}: something came in that way.`)
+      return
+    }
+
+    const caught = this.enemies.filter(
+      (e) =>
+        e.state !== 'downed' &&
+        e.state !== 'captive' &&
+        Math.hypot(e.x - t.x, e.y - t.y) <= effect.radius,
+    )
+    if (effect.kind === 'slow') {
+      for (const e of caught) {
+        e.speedMul = effect.speedMul
+        e.slowUntil = this.elapsed + effect.seconds
+      }
+      this.log(`${def.name} caught ${caught.length}. Nobody is going anywhere fast.`, 'good')
+      return
+    }
+
+    for (const e of caught) {
+      e.hp -= effect.amount
+      if (e.hp <= 0) {
+        e.hp = 0
+        this.downEnemy(e)
+      }
+    }
+    this.log(`${def.name} went off on ${caught.length}.`, 'good')
+  }
+
   /**
    * Places room tiles, merging with any adjacent room of the same type. Rooms
    * finish instantly once paid for — a build queue reads as lag on a phone.
@@ -448,6 +597,7 @@ export class Simulation {
     for (const c of this.creatures) this.tickCreature(c, dt)
     this.creatures = this.creatures.filter((c) => c.hp > 0 && c.state !== 'leaving')
     this.tickRaids(dt)
+    this.tickTraps(dt)
     for (const e of this.enemies) this.tickEnemy(e, dt)
     this.tickAttraction(dt)
     this.tickObjectives()
@@ -795,6 +945,8 @@ export class Simulation {
       state: 'hunting',
       targetCreature: null,
       attackIn: 1,
+      speedMul: 1,
+      slowUntil: 0,
       timer: def.behaviour.kind === 'timer' ? def.behaviour.seconds : 0,
       carrying: 0,
       convert: 0,
@@ -816,6 +968,7 @@ export class Simulation {
 
     e.attackIn -= dt
     e.thinkIn -= dt
+    if (this.elapsed > e.slowUntil) e.speedMul = 1
     this.applyPassiveBehaviour(e, def, dt)
 
     // A Server Farm is furniture with an opinion: it never moves or chases.
@@ -839,7 +992,7 @@ export class Simulation {
         e.path = []
         return
       }
-      if (Math.hypot(target.x - e.x, target.y - e.y) <= STRIKE_RANGE) {
+      if (this.canStrike(e, def, target)) {
         e.path = []
         // Scouts do not fight, they sign. Contact time is the threat, so you
         // have `captureSeconds` to get someone over there and interrupt it.
@@ -874,7 +1027,7 @@ export class Simulation {
           e.state = 'hunting'
         }
       }
-      this.moveEnemy(e, def.speed * dt)
+      this.moveEnemy(e, def.speed * e.speedMul * dt)
       return
     }
 
@@ -890,7 +1043,7 @@ export class Simulation {
           e.state = 'hunting'
         }
       }
-      this.moveEnemy(e, def.speed * dt)
+      this.moveEnemy(e, def.speed * e.speedMul * dt)
       if (e.path.length === 0 && this.isRoomTile(Math.round(e.x), Math.round(e.y), 'booking-door')) {
         this.escapeEnemy(e)
       }
@@ -910,9 +1063,35 @@ export class Simulation {
         )
       if (found) e.path = found.path
     }
-    this.moveEnemy(e, def.speed * dt)
+    this.moveEnemy(e, def.speed * e.speedMul * dt)
 
     if (e.path.length === 0) this.enemyActOnGoal(e, def)
+  }
+
+  /**
+   * Whether an intruder can hit what it is aiming at from where it stands.
+   *
+   * Melee is a swing's reach. A `ranged` intruder attacks from `range` tiles,
+   * but only down open ground — otherwise it would shoot through rock, and
+   * tunnelling round the side would stop being the answer to it.
+   */
+  private canStrike(e: Enemy, def: ReturnType<typeof enemyDef>, target: Creature): boolean {
+    const distance = Math.hypot(target.x - e.x, target.y - e.y)
+    if (def.behaviour.kind !== 'ranged') return distance <= STRIKE_RANGE
+    if (distance > def.behaviour.range) return false
+    return this.hasLineOfSight(e.x, e.y, target.x, target.y)
+  }
+
+  /** Samples the straight line between two points for anything solid. */
+  private hasLineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
+    const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2)
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps
+      const x = Math.round(x0 + (x1 - x0) * t)
+      const y = Math.round(y0 + (y1 - y0) * t)
+      if (!this.grid.walkable(x, y)) return false
+    }
+    return true
   }
 
   private enemyGoal(def: { target: string }): ((x: number, y: number) => boolean) | null {
@@ -1225,7 +1404,10 @@ export class Simulation {
       return false
     }
 
-    const threat = this.nearestEnemy(c.x, c.y, DEFEND_RADIUS)
+    // Something shooting from the back of the room is still a threat, however
+    // far away it is standing — otherwise a Sniper plinks away forever and the
+    // crew carry on digging.
+    const threat = this.nearestEnemy(c.x, c.y, DEFEND_RADIUS) ?? this.shooterOf(c)
     if (!threat) {
       if (c.state === 'fighting') {
         c.state = 'idle'
@@ -1265,6 +1447,15 @@ export class Simulation {
     }
     this.advanceAlongPath(c, def.speed * c.speedMul * this.globalSpeedMul * dt)
     return true
+  }
+
+  /** The ranged intruder currently shooting this creature, if there is one. */
+  private shooterOf(c: Creature): Enemy | null {
+    for (const e of this.enemies) {
+      if (e.state !== 'fighting' || e.targetCreature !== c.id) continue
+      if (enemyDef(e.def).behaviour.kind === 'ranged') return e
+    }
+    return null
   }
 
   private advanceAlongPath(c: Creature, distance: number): void {
@@ -1749,6 +1940,7 @@ export class Simulation {
       rooms: [...this.rooms.values()].map((r) => ({ ...r })),
       creatures: this.creatures.map((c) => ({ ...c, path: c.path.map((p) => ({ ...p })), job: c.job ? { ...c.job } : null })),
       enemies: this.enemies.map((e) => ({ ...e, path: e.path.map((p) => ({ ...p })) })),
+      traps: this.traps.map((t) => ({ ...t })),
       defeated: { ...this.defeated },
       capturedCreatures: [...this.capturedCreatures],
       firedRaids: [...this.firedRaids],
@@ -1756,6 +1948,7 @@ export class Simulation {
       nextCreatureId: this.nextCreatureId,
       nextEnemyId: this.nextEnemyId,
       nextRoomId: this.nextRoomId,
+      nextTrapId: this.nextTrapId,
       mealsReady: this.mealsReady,
       paydayIn: this.paydayIn,
       spawnIn: this.spawnIn,
@@ -1783,7 +1976,13 @@ export class Simulation {
 
     sim.rooms = new Map(snapshot.rooms.map((r) => [r.id, { ...r }]))
     sim.creatures = snapshot.creatures.map((c) => ({ ...c }))
-    sim.enemies = (snapshot.enemies ?? []).map((e) => ({ ...e }))
+    // Saves from before traps and slows existed simply have neither.
+    sim.enemies = (snapshot.enemies ?? []).map((e) => ({
+      ...e,
+      speedMul: e.speedMul ?? 1,
+      slowUntil: e.slowUntil ?? 0,
+    }))
+    sim.traps = (snapshot.traps ?? []).map((t) => ({ ...t }))
     sim.defeated = { ...(snapshot.defeated ?? {}) }
     sim.capturedCreatures = [...(snapshot.capturedCreatures ?? [])]
     sim.firedRaids = new Set(snapshot.firedRaids ?? [])
@@ -1796,6 +1995,7 @@ export class Simulation {
     sim.status = snapshot.status
     sim.nextCreatureId = snapshot.nextCreatureId
     sim.nextRoomId = snapshot.nextRoomId
+    sim.nextTrapId = snapshot.nextTrapId ?? sim.traps.length + 1
     sim.mealsReady = snapshot.mealsReady
     sim.paydayIn = snapshot.paydayIn
     sim.spawnIn = snapshot.spawnIn
@@ -1818,7 +2018,7 @@ export class Simulation {
   }
 }
 
-export const SNAPSHOT_VERSION = 3
+export const SNAPSHOT_VERSION = 4
 
 export interface SimSnapshot {
   version: number
@@ -1842,12 +2042,14 @@ export interface SimSnapshot {
   rooms: RoomInstance[]
   creatures: Creature[]
   enemies: Enemy[]
+  traps: Trap[]
   defeated: Record<string, number>
   capturedCreatures: string[]
   firedRaids: number[]
   venueDebuffUntil: number
   nextCreatureId: number
   nextEnemyId: number
+  nextTrapId: number
   nextRoomId: number
   mealsReady: number
   paydayIn: number

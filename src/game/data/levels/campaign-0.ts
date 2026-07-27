@@ -42,6 +42,8 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
     startingCreatures: [{ creature: 'roadie-ogre', count: 3 }],
     rooms: ['royalties-vault', 'green-room', 'merch-table'],
     spells: ['callback', 'backstage-pass'],
+    // Nothing to trap yet, and one new verb at a time.
+    traps: [],
     objectives: [
       { kind: 'room', room: 'royalties-vault', tiles: 4, label: 'Dig out a Royalties Vault (4 tiles)' },
       { kind: 'room', room: 'green-room', tiles: 4, label: 'Give somebody a Green Room (4 tiles)' },
@@ -91,6 +93,7 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
     startingCreatures: [{ creature: 'roadie-ogre', count: 3 }],
     rooms: CORE_ROOMS,
     spells: ['callback', 'backstage-pass', 'fast-forward'],
+    traps: ['cable-snare'],
     objectives: [
       { kind: 'creatures', amount: 8, label: 'Get 8 creatures on the roster' },
       { kind: 'room', room: 'basement-venue', tiles: 6, label: 'Open a Basement Venue (6 tiles)' },
@@ -169,6 +172,7 @@ export const CAMPAIGN_0_LEVELS: LevelDef[] = [
     ],
     rooms: [...CORE_ROOMS, 'horn-alcove', 'contract-office', 'signing-room'],
     spells: ['callback', 'backstage-pass', 'fast-forward', 'mosh-pit', 'encore', 'sold-out'],
+    traps: ['cable-snare', 'feedback-loop', 'door-buzzer'],
     objectives: [
       { kind: 'royalties', amount: 1800, label: 'Bank 1800 Royalties' },
       { kind: 'creatures', amount: 10, label: 'Get 10 creatures on the roster' },

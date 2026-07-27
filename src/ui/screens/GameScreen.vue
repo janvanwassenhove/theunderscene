@@ -177,8 +177,9 @@ function finishLevel() {
       <p>{{ level.name }} — everything is saved automatically, including when you leave.</p>
       <p class="mono small">
         Dig marks rock — including rock you have not reached yet, so you can plan a tunnel out
-        into the dark. Build drags out a room. Two fingers pan and pinch; the buttons on the left
-        zoom, turn the view and recentre. Long-press inspects anything.
+        into the dark. Build drags out a room. Traps go one per tile on ground you own, and Tear
+        down lifts them again. Two fingers pan and pinch; the buttons on the left zoom, turn the
+        view and recentre. Long-press inspects anything.
       </p>
       <template #actions>
         <button class="primary" @click="menuOpen = false">Back to it</button>

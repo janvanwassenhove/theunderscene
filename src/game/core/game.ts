@@ -3,6 +3,7 @@ import { room as roomDef } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
 import { enemy as enemyDef } from '../data/enemies'
 import { spell as spellDef } from '../data/spells'
+import { trap as trapDef } from '../data/traps'
 import { PointerInput, type Point } from '../input/pointerInput'
 import { WorldRenderer } from '../render/worldRenderer'
 import { Simulation, type Creature, type SimEvent, type SimSnapshot } from './simulation'
@@ -14,6 +15,7 @@ export type Tool =
   | { kind: 'dig' }
   | { kind: 'build'; room: string }
   | { kind: 'demolish' }
+  | { kind: 'trap'; trap: string }
   | { kind: 'spell'; spell: string }
 
 export interface TileInfo {
@@ -67,6 +69,7 @@ export interface HudSnapshot {
   selectedId: number | null
   inspect: TileInfo | null
   rooms: { id: string; name: string; blurb: string; costPerTile: number; color: number; affordable: boolean }[]
+  traps: { id: string; name: string; glyph: string; blurb: string; cost: number; affordable: boolean }[]
   spells: { id: string; name: string; glyph: string; blurb: string; cost: number; ready: boolean; cooldown: number }[]
   /** Tiles currently under a build drag, and what they would cost. */
   pendingCost: number
@@ -292,7 +295,12 @@ export class Game {
         break
       }
       case 'demolish': {
-        this.sim.demolish(tile.x, tile.y)
+        // Tear down lifts whatever is on the tile, trap or room.
+        if (!this.sim.removeTrap(tile.x, tile.y)) this.sim.demolish(tile.x, tile.y)
+        break
+      }
+      case 'trap': {
+        if (this.sim.placeTrap(this.tool.trap, tile.x, tile.y)) audio.play('build')
         break
       }
       case 'spell': {
@@ -343,7 +351,7 @@ export class Game {
       return
     }
     if (this.tool.kind === 'demolish') {
-      this.sim.demolish(tile.x, tile.y)
+      if (!this.sim.removeTrap(tile.x, tile.y)) this.sim.demolish(tile.x, tile.y)
       return
     }
     if (this.tool.kind === 'build' && this.dragStartTile) {
@@ -424,6 +432,23 @@ export class Game {
     const kind = grid.kindAt(x, y)
     const instance = grid.roomId[i] ? this.sim.rooms.get(grid.roomId[i]!) : undefined
     const pile = grid.pile[i]!
+
+    const laid = this.sim.trapAt(x, y)
+    if (laid) {
+      const def = trapDef(laid.def)
+      return {
+        x,
+        y,
+        title: def.name,
+        detail:
+          laid.armIn > 0
+            ? `Arming — ${Math.ceil(laid.armIn)}s. ${def.blurb}`
+            : `Live, ${laid.charges} charge(s) left. ${def.blurb}`,
+        canDig: false,
+        designated: false,
+        roomDefId: null,
+      }
+    }
 
     if (instance) {
       const def = roomDef(instance.def)
@@ -548,6 +573,17 @@ export class Game {
           costPerTile: def.costPerTile,
           color: def.color,
           affordable: sim.royalties >= def.costPerTile,
+        }
+      }),
+      traps: sim.def.traps.map((id) => {
+        const def = trapDef(id)
+        return {
+          id,
+          name: def.name,
+          glyph: def.glyph,
+          blurb: def.blurb,
+          cost: def.cost,
+          affordable: sim.royalties >= def.cost,
         }
       }),
       spells: sim.def.spells.map((id) => {

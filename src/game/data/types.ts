@@ -211,6 +211,8 @@ export interface LevelDef {
   startingCreatures: { creature: string; count: number }[]
   rooms: string[]
   spells: string[]
+  /** Traps that can be laid on this level. */
+  traps: string[]
   objectives: Objective[]
   hints: LevelHint[]
   raids: RaidWave[]

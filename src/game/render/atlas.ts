@@ -31,6 +31,8 @@ export type AtlasKey =
   | 'coin'
   | 'bar'
   | 'threat'
+  | 'trap'
+  | 'trapArming'
 
 const CELL = 64
 const COLS = 8
@@ -53,6 +55,8 @@ const KEYS: AtlasKey[] = [
   'coin',
   'bar',
   'threat',
+  'trap',
+  'trapArming',
 ]
 
 function cellOrigin(index: number): { x: number; y: number } {
@@ -186,6 +190,22 @@ function drawCell(g: Graphics, key: AtlasKey, ox: number, oy: number): void {
     // Marks an intruder, so a raid reads at a glance on a small screen.
     case 'threat':
       g.poly([cx, floorY - 8, cx + 7, floorY + 4, cx - 7, floorY + 4]).fill(0xffffff)
+      break
+
+    // A laid trap: a plate flush with the floor, with its trigger picked out.
+    case 'trap':
+      diamond(g, cx, floorY, TILE_W - 14, TILE_H - 7).fill({ color: 0xffffff, alpha: 0.9 })
+      diamond(g, cx, floorY, TILE_W - 30, TILE_H - 15).stroke({ width: 2, color: 0x000000, alpha: 0.45 })
+      break
+
+    // Same plate, still arming — dashed, so "not live yet" reads without text.
+    case 'trapArming':
+      for (let k = 0; k < 4; k++) {
+        const w = TILE_W - 14
+        const h = TILE_H - 7
+        const a = (k * Math.PI) / 2 + Math.PI / 4
+        g.circle(cx + (Math.cos(a) * w) / 4, floorY + (Math.sin(a) * h) / 4, 2.5).fill(0xffffff)
+      }
       break
   }
 }

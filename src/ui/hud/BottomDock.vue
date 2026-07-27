@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { HudSnapshot, Tool } from '../../game/core/game'
 
 const props = defineProps<{ hud: HudSnapshot }>()
 const emit = defineEmits<{ (e: 'tool', tool: Tool): void; (e: 'spell', id: string): void }>()
 
-type Tab = 'tools' | 'build' | 'spells'
+type Tab = 'tools' | 'build' | 'traps' | 'spells'
 const tab = ref<Tab>('tools')
+
+// A level with no traps unlocked should not show an empty tray.
+const tabs = computed<Tab[]>(() =>
+  props.hud.traps.length > 0 ? ['tools', 'build', 'traps', 'spells'] : ['tools', 'build', 'spells'],
+)
 
 function isTool(kind: Tool['kind'], id?: string): boolean {
   const tool = props.hud.tool
   if (tool.kind !== kind) return false
   if (kind === 'build' && tool.kind === 'build') return tool.room === id
+  if (kind === 'trap' && tool.kind === 'trap') return tool.trap === id
   if (kind === 'spell' && tool.kind === 'spell') return tool.spell === id
   return true
 }
@@ -26,11 +32,12 @@ function hex(value: number): string {
     <div v-if="hud.tool.kind === 'build' && hud.pendingCost > 0" class="cost mono">
       {{ hud.pendingCost }} Royalties · release to build
     </div>
+    <div v-else-if="hud.tool.kind === 'trap'" class="cost mono">Tap owned floor to lay it</div>
     <div v-else-if="hud.tool.kind === 'spell'" class="cost mono">Tap a target to cast</div>
 
     <div class="tabs">
       <button
-        v-for="t in (['tools', 'build', 'spells'] as Tab[])"
+        v-for="t in tabs"
         :key="t"
         class="tap tab stencil"
         :class="{ on: tab === t }"
@@ -76,6 +83,20 @@ function hex(value: number): string {
           <span class="swatch" />
           <span class="label">{{ room.name }}</span>
           <span class="meta mono">{{ room.costPerTile }}/tile</span>
+        </button>
+      </template>
+
+      <template v-else-if="tab === 'traps'">
+        <button
+          v-for="t in hud.traps"
+          :key="t.id"
+          class="tap chip"
+          :class="{ on: isTool('trap', t.id), poor: !t.affordable }"
+          @click="emit('tool', { kind: 'trap', trap: t.id })"
+        >
+          <span class="glyph">{{ t.glyph }}</span>
+          <span class="label">{{ t.name }}</span>
+          <span class="meta mono">{{ t.cost }} each</span>
         </button>
       </template>
 

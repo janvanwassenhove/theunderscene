@@ -1,5 +1,5 @@
 import type { LevelDef } from '../types'
-import { CORE_ROOMS, CORE_SPELLS, defineLevel } from './defineLevel'
+import { CORE_ROOMS, CORE_SPELLS, CORE_TRAPS, defineLevel } from './defineLevel'
 
 const ELECTRONIC_ROOMS = [...CORE_ROOMS, 'synth-greenhouse', 'glowstick-hatchery', 'dj-throne']
 
@@ -32,6 +32,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     ],
     rooms: ELECTRONIC_ROOMS,
     spells: CORE_SPELLS,
+    traps: [...CORE_TRAPS, 'strobe-pit'],
     objectives: [
       { kind: 'room', room: 'synth-greenhouse', tiles: 5, label: 'Grow an Analog Synth Greenhouse' },
       { kind: 'buzz', amount: 400, label: 'Reach 400 Buzz' },
@@ -70,6 +71,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     ],
     rooms: ELECTRONIC_ROOMS,
     spells: [...CORE_SPELLS, 'mosh-pit'],
+    traps: [...CORE_TRAPS, 'strobe-pit'],
     objectives: [
       { kind: 'room', room: 'glowstick-hatchery', tiles: 3, label: 'Open a Glowstick Hatchery' },
       { kind: 'creatures', amount: 26, label: 'Get 26 creatures on the roster' },
@@ -82,6 +84,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     raids: [
       { at: 140, enemies: [{ enemy: 'algorithm-wraith', count: 2 }], announce: 'The drains are back.' },
       { at: 310, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'Radio, escorting the drains again.' },
+      { at: 400, enemies: [{ enemy: 'comment-sniper', count: 2 }], announce: 'Two voices from the dark, both wrong.' },
       { at: 490, enemies: [{ enemy: 'critique-cleric', count: 2 }, { enemy: 'ar-scout', count: 2 }], announce: '"Is it even music" — them, again.' },
     ],
   }),
@@ -112,6 +115,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     ],
     rooms: ELECTRONIC_ROOMS,
     spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    traps: [...CORE_TRAPS, 'strobe-pit'],
     objectives: [
       { kind: 'room', room: 'dj-throne', tiles: 1, label: 'Install the DJ Throne' },
       { kind: 'buzz', amount: 700, label: 'Reach 700 Buzz' },
@@ -124,6 +128,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     raids: [
       { at: 130, enemies: [{ enemy: 'algorithm-wraith', count: 3 }], announce: 'Three drains, straight for the Greenhouse.' },
       { at: 300, enemies: [{ enemy: 'playlist-paladin', count: 2 }], announce: 'They want the Throne.' },
+      { at: 380, enemies: [{ enemy: 'comment-sniper', count: 3 }], announce: 'A wall of opinion at six tiles.' },
       { at: 470, enemies: [{ enemy: 'algorithm-wraith', count: 3 }, { enemy: 'critique-cleric', count: 1 }], announce: 'More drains. It is learning what hurts.' },
     ],
   }),
@@ -154,6 +159,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     ],
     rooms: ELECTRONIC_ROOMS,
     spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    traps: [...CORE_TRAPS, 'strobe-pit'],
     objectives: [
       { kind: 'defeat', enemy: 'server-farm', count: 3, label: 'Smash three Server Farms' },
       { kind: 'buzz', amount: 600, label: 'Hold 600 Buzz' },
@@ -165,6 +171,7 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
     raids: [
       { at: 120, enemies: [{ enemy: 'server-farm', count: 1 }], announce: 'It has installed something in the corridor.' },
       { at: 280, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'Another one, with a guard.' },
+      { at: 360, enemies: [{ enemy: 'comment-sniper', count: 3 }, { enemy: 'critique-cleric', count: 1 }], announce: 'The critics brought backup.' },
       { at: 450, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'A third. This is a rehearsal for something.' },
     ],
   }),

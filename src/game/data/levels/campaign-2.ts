@@ -1,5 +1,5 @@
 import type { LevelDef } from '../types'
-import { CORE_ROOMS, CORE_SPELLS, defineLevel } from './defineLevel'
+import { CORE_ROOMS, CORE_SPELLS, CORE_TRAPS, defineLevel } from './defineLevel'
 
 const METAL_ROOMS = [...CORE_ROOMS, 'rehearsal-crypt', 'corpsepaint-vanity', 'moshpit-arena', 'basement-venue']
 
@@ -32,6 +32,7 @@ export const CAMPAIGN_2_LEVELS: LevelDef[] = [
     ],
     rooms: METAL_ROOMS,
     spells: CORE_SPELLS,
+    traps: [...CORE_TRAPS, 'blast-beat'],
     objectives: [
       { kind: 'room', room: 'rehearsal-crypt', tiles: 4, label: 'Dig out a Rehearsal Crypt' },
       { kind: 'room', room: 'corpsepaint-vanity', tiles: 2, label: 'Build a Corpsepaint Vanity' },
@@ -74,6 +75,7 @@ export const CAMPAIGN_2_LEVELS: LevelDef[] = [
     ],
     rooms: METAL_ROOMS,
     spells: [...CORE_SPELLS, 'mosh-pit'],
+    traps: [...CORE_TRAPS, 'blast-beat'],
     objectives: [
       { kind: 'room', room: 'moshpit-arena', tiles: 5, label: 'Open a Moshpit Arena' },
       { kind: 'creatures', amount: 16, label: 'Get 16 creatures on the roster' },
@@ -124,6 +126,7 @@ export const CAMPAIGN_2_LEVELS: LevelDef[] = [
     ],
     rooms: METAL_ROOMS,
     spells: [...CORE_SPELLS, 'mosh-pit'],
+    traps: [...CORE_TRAPS, 'blast-beat'],
     objectives: [
       { kind: 'royalties', amount: 3200, label: 'Bank 3200 Royalties' },
       { kind: 'creatures', amount: 20, label: 'Get 20 creatures on the roster' },
@@ -178,6 +181,7 @@ export const CAMPAIGN_2_LEVELS: LevelDef[] = [
     ],
     rooms: METAL_ROOMS,
     spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    traps: [...CORE_TRAPS, 'blast-beat'],
     objectives: [
       { kind: 'defeat', enemy: 'eviction-warlord', count: 1, label: 'See off the Eviction Warlord' },
       { kind: 'defeat', enemy: 'playlist-paladin', count: 2, label: 'Break two Playlist Paladins' },

@@ -4,6 +4,7 @@ import { ROOMS, roomOrNull } from '../src/game/data/rooms'
 import { CREATURES, creature } from '../src/game/data/creatures'
 import { ENEMIES, enemy } from '../src/game/data/enemies'
 import { SPELLS, spell } from '../src/game/data/spells'
+import { TRAPS, trap } from '../src/game/data/traps'
 import { Simulation } from '../src/game/core/simulation'
 import { findPath } from '../src/game/core/pathfinding'
 
@@ -21,6 +22,7 @@ describe('Content integrity', () => {
       ['creatures', CREATURES.map((c) => c.id)],
       ['enemies', ENEMIES.map((e) => e.id)],
       ['spells', SPELLS.map((s) => s.id)],
+      ['traps', TRAPS.map((t) => t.id)],
       ['levels', LEVELS.map((l) => l.id)],
       ['campaigns', CAMPAIGNS.map((c) => c.id)],
     ] as const) {
@@ -28,12 +30,13 @@ describe('Content integrity', () => {
     }
   })
 
-  it('only references rooms, creatures, enemies and spells that exist', () => {
+  it('only references rooms, creatures, enemies, spells and traps that exist', () => {
     for (const level of LEVELS) {
       for (const id of level.rooms) {
         expect(roomOrNull(id), `${level.id} lists unknown room ${id}`).not.toBeNull()
       }
       for (const id of level.spells) expect(() => spell(id)).not.toThrow()
+      for (const id of level.traps) expect(() => trap(id), `${level.id} lists unknown trap ${id}`).not.toThrow()
       for (const entry of level.startingCreatures) expect(() => creature(entry.creature)).not.toThrow()
       for (const wave of level.raids) {
         for (const entry of wave.enemies) expect(() => enemy(entry.enemy)).not.toThrow()
