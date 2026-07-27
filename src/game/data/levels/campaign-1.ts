@@ -189,4 +189,48 @@ export const CAMPAIGN_1_LEVELS: LevelDef[] = [
       },
     ],
   }),
+
+  defineLevel({
+    id: 'c1-l5',
+    campaignId: 'basement-diy',
+    index: 5,
+    name: 'The Second Van',
+    wing: 'punk',
+    poster: {
+      headline: 'ONE VAN DIED SO THIS ONE COULD LIVE',
+      lines: [
+        'The scene is big enough to tour now, which mostly means it is big enough to be noticed.',
+        'Everyone who has ever wanted a piece of it turns up at once, and none of them knock.',
+      ],
+    },
+    seed: 5150015,
+    startRoyalties: 1200,
+    capacity: 34,
+    width: 44,
+    height: 32,
+    startingCreatures: [
+      { creature: 'roadie-ogre', count: 4 },
+      { creature: 'punk-imp', count: 3 },
+      { creature: 'ska-hoorndemon', count: 2 },
+    ],
+    rooms: PUNK_ROOMS,
+    spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    objectives: [
+      { kind: 'survive', seconds: 720, label: 'Keep the doors open for 12 minutes' },
+      { kind: 'creatures', amount: 22, label: 'Get 22 creatures on the roster' },
+      { kind: 'royalties', amount: 3200, label: 'Bank 3200 Royalties' },
+    ],
+    hints: [
+      { when: { kind: 'start' }, text: 'Traps pay for themselves in a corridor everything has to walk down.' },
+      { when: { kind: 'creatures', atLeast: 16 }, text: 'Beds cap the roster before the lease does. Dig the Green Room out wider.' },
+      { when: { kind: 'elapsed', seconds: 500 }, text: 'Nothing here is a boss. It is just relentless, which is worse.' },
+    ],
+    raids: [
+      { at: 100, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Scouts, before the van has even unloaded.' },
+      { at: 230, enemies: [{ enemy: 'critique-cleric', count: 2 }, { enemy: 'ar-scout', count: 2 }], announce: 'Press, with opinions already written.' },
+      { at: 360, enemies: [{ enemy: 'comment-sniper', count: 3 }], announce: 'The comments came in person again.' },
+      { at: 480, enemies: [{ enemy: 'playlist-paladin', count: 2 }], announce: 'Two Paladins. Radio has decided you are a format.' },
+      { at: 620, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'noise-inspector', count: 1 }], announce: 'The landlord, and someone with a decibel meter.' },
+    ],
+  }),
 ]

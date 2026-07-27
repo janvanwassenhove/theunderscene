@@ -173,4 +173,50 @@ export const CAMPAIGN_3_LEVELS: LevelDef[] = [
       { at: 470, enemies: [{ enemy: 'algorithm-wraith', count: 3 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'It is not going to stop sending them.' },
     ],
   }),
+
+  defineLevel({
+    id: 'c3-l5',
+    campaignId: 'reverb-hollow',
+    index: 5,
+    name: 'Nobody Came, It Was Perfect',
+    wing: 'shoegaze',
+    poster: {
+      headline: 'ATTENDANCE: ELEVEN. ALL OF THEM CRYING',
+      lines: [
+        'The hollow has never been louder, which in this wing means nothing at all has changed.',
+        'The Algorithm keeps sending things to categorise it, and the things keep leaving confused.',
+      ],
+    },
+    seed: 199105,
+    startRoyalties: 1400,
+    startBuzz: 60,
+    capacity: 34,
+    width: 44,
+    height: 34,
+    waterDensity: 0.05,
+    startingCreatures: [
+      { creature: 'roadie-ogre', count: 4 },
+      { creature: 'shoegaze-wraith', count: 5 },
+      { creature: 'session-player', count: 2 },
+    ],
+    rooms: SHOEGAZE_ROOMS,
+    spells: [...CORE_SPELLS, 'viral-moment'],
+    objectives: [
+      { kind: 'buzz', amount: 700, label: 'Hold 700 Buzz' },
+      { kind: 'defeat', enemy: 'algorithm-wraith', count: 6, label: 'Break six Algorithm Wraiths' },
+      { kind: 'defeat', enemy: 'comment-sniper', count: 4, label: 'Reach four Comment Section Snipers' },
+    ],
+    hints: [
+      { when: { kind: 'start' }, text: 'Reverb Chambers make Buzz without a show. Nothing here needs an audience.' },
+      { when: { kind: 'start' }, text: 'Merch Stands plank over water. There is more of it here than you would like.' },
+      { when: { kind: 'elapsed', seconds: 420 }, text: 'Snipers will not walk to you. Dig a way round and take the whole crew.' },
+    ],
+    raids: [
+      { at: 140, enemies: [{ enemy: 'algorithm-wraith', count: 2 }], announce: 'It is drinking the quiet again.' },
+      { at: 280, enemies: [{ enemy: 'comment-sniper', count: 2 }, { enemy: 'ar-scout', count: 2 }], announce: 'Voices from the back, and someone taking names.' },
+      { at: 420, enemies: [{ enemy: 'algorithm-wraith', count: 3 }], announce: 'Three drains, straight for the Chamber.' },
+      { at: 560, enemies: [{ enemy: 'comment-sniper', count: 3 }, { enemy: 'critique-cleric', count: 1 }], announce: 'They have brought someone who can spell.' },
+      { at: 700, enemies: [{ enemy: 'algorithm-wraith', count: 3 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'It still cannot categorise you. It is still trying.' },
+    ],
+  }),
 ]

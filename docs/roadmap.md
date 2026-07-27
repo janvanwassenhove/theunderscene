@@ -14,6 +14,7 @@ this on my phone" is the bar for done, not "the code is merged".
 | **3** | Shoegaze + Hip-Hop wings, Underscene Map meta-progression, Cypher and synergy sub-mechanics | **done** |
 | **4** | Electronic + Folk wings, The Algorithm finale, Mixing Board mechanic | **done** |
 | **5** | Performance pass, PWA install/offline hardening, audio, art to final fidelity | **audio and perf done; art is the remaining piece** |
+| **6** | Traps, ranged intruders, view rotation and zoom, campaign length | **done** — see `CHANGELOG-phase-6.md` |
 
 Phase 0 already ships a partial Phase 3 item — the Underscene Map hub exists so
 all eight campaigns are visible from the start, with unbuilt wings shown as
@@ -34,6 +35,17 @@ behaviour and balance rather than new content.
 | 6 | The Kindling Hall | Folk | Communal buffs; teaches synergy ahead of the finale. |
 | 7 | The Algorithm | All | One basement housing every wing at once, against the Overlord. |
 
+## Campaign length
+
+The brief asks for 5–7 levels per campaign. Every genre wing runs five. Two
+campaigns deliberately do not:
+
+- **The First Basement (3).** It is the tutorial. Each level introduces one
+  verb — dig and build, then spells and the first raid, then the Warlord.
+  Padding it would mean teaching nothing for two levels.
+- **The Algorithm (3).** One level per phase of the boss, which is the shape the
+  design doc gives it. A fourth level would be a phase that does not exist.
+
 ## What is left
 
 - **Art.** Every sprite is still a procedurally drawn placeholder at final size
@@ -42,8 +54,6 @@ behaviour and balance rather than new content.
 - **Balance by a human.** Every level runs, is connected and is internally
   consistent; none has been played to completion by a person. Objective
   thresholds are educated guesses.
-- **Traps**, and `ranged` enemy behaviour, which is declared on the schema but
-  unused — every intruder currently closes to melee.
 - **On-device testing.** Still the brief's own bar for done.
 
 ## Art pipeline

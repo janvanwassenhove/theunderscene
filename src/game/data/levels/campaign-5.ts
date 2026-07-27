@@ -175,4 +175,50 @@ export const CAMPAIGN_5_LEVELS: LevelDef[] = [
       { at: 450, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'A third. This is a rehearsal for something.' },
     ],
   }),
+
+  defineLevel({
+    id: 'c5-l5',
+    campaignId: 'analog-deep',
+    index: 5,
+    name: 'Sunrise Set',
+    wing: 'electronic',
+    poster: {
+      headline: 'STILL GOING AT SIX IN THE MORNING',
+      lines: [
+        'The room has not stopped in eleven hours and neither has the thing trying to switch it off.',
+        'Everything you have is fast, loud, and one dropped patch away from silence.',
+      ],
+    },
+    seed: 3030005,
+    startRoyalties: 1600,
+    startBuzz: 120,
+    capacity: 42,
+    width: 46,
+    height: 34,
+    startingCreatures: [
+      { creature: 'roadie-ogre', count: 4 },
+      { creature: 'synth-elemental', count: 3 },
+      { creature: 'glowstick-wisp', count: 6 },
+    ],
+    rooms: ELECTRONIC_ROOMS,
+    spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    traps: [...CORE_TRAPS, 'strobe-pit'],
+    objectives: [
+      { kind: 'survive', seconds: 720, label: 'Keep the set going for 12 minutes' },
+      { kind: 'buzz', amount: 900, label: 'Hold 900 Buzz' },
+      { kind: 'defeat', enemy: 'server-farm', count: 4, label: 'Smash four Server Farms' },
+    ],
+    hints: [
+      { when: { kind: 'start' }, text: 'Buzz decays faster here than anywhere. Holding 900 is a rate problem, not a total.' },
+      { when: { kind: 'start' }, text: 'A Strobe Pit stops a whole corridor without hurting anything. Use it on the escorts.' },
+      { when: { kind: 'elapsed', seconds: 540 }, text: 'Synths drop out on a timer. Keep more of them than you think you need.' },
+    ],
+    raids: [
+      { at: 110, enemies: [{ enemy: 'server-farm', count: 1 }], announce: 'It has plugged something in.' },
+      { at: 250, enemies: [{ enemy: 'algorithm-wraith', count: 3 }], announce: 'Drains, in the wing that can least afford them.' },
+      { at: 390, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'comment-sniper', count: 3 }], announce: 'Hardware, with covering fire.' },
+      { at: 530, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'playlist-paladin', count: 2 }], announce: 'A third, well guarded.' },
+      { at: 680, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'algorithm-wraith', count: 3 }], announce: 'The fourth. It is trying to pull the power before the sun comes up.' },
+    ],
+  }),
 ]

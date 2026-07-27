@@ -205,4 +205,50 @@ export const CAMPAIGN_2_LEVELS: LevelDef[] = [
       },
     ],
   }),
+
+  defineLevel({
+    id: 'c2-l5',
+    campaignId: 'rehearsal-crypt',
+    index: 5,
+    name: 'Slow Movement',
+    wing: 'metal',
+    poster: {
+      headline: 'FORTY MINUTES, FOUR RIFFS',
+      lines: [
+        'The crypt has stopped being a rehearsal room and started being a fortification.',
+        'Nothing here is fast. Not the songs, not the economy, and not the thing coming down the corridor.',
+      ],
+    },
+    seed: 66605,
+    startRoyalties: 1400,
+    capacity: 34,
+    width: 46,
+    height: 34,
+    veinDensity: 0.055,
+    startingCreatures: [
+      { creature: 'roadie-ogre', count: 4 },
+      { creature: 'doom-ogre', count: 4 },
+      { creature: 'corpsepaint-wraith', count: 2 },
+    ],
+    rooms: METAL_ROOMS,
+    spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    traps: [...CORE_TRAPS, 'blast-beat'],
+    objectives: [
+      { kind: 'survive', seconds: 780, label: 'Hold the Crypt for 13 minutes' },
+      { kind: 'defeat', enemy: 'eviction-warlord', count: 2, label: 'See off both Warlords' },
+      { kind: 'room', room: 'rehearsal-crypt', tiles: 12, label: 'Run a 12-tile Rehearsal Crypt' },
+    ],
+    hints: [
+      { when: { kind: 'start' }, text: 'The Crypt ramps the longer it stays occupied. Leaving it empty resets that.' },
+      { when: { kind: 'start' }, text: 'Blast Beat Plates are one use and hit hard. Save them for the corridor that matters.' },
+      { when: { kind: 'elapsed', seconds: 600 }, text: 'Both Warlords are still to come. Do not spend the roster on the escorts.' },
+    ],
+    raids: [
+      { at: 150, enemies: [{ enemy: 'playlist-paladin', count: 1 }, { enemy: 'critique-cleric', count: 1 }], announce: 'A warm-up act nobody asked for.' },
+      { at: 300, enemies: [{ enemy: 'eviction-warlord', count: 1 }], announce: 'THE LANDLORD. Early, this time.' },
+      { at: 450, enemies: [{ enemy: 'comment-sniper', count: 3 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'Snipers, guarded. Go and get them.' },
+      { at: 600, enemies: [{ enemy: 'noise-inspector', count: 2 }, { enemy: 'critique-cleric', count: 2 }], announce: 'Paperwork, to slow the fight down.' },
+      { at: 720, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'playlist-paladin', count: 2 }], announce: 'AND THE OTHER ONE. He brought the folder and the council.' },
+    ],
+  }),
 ]

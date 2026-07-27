@@ -166,4 +166,49 @@ export const CAMPAIGN_4_LEVELS: LevelDef[] = [
       { at: 460, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'critique-cleric', count: 2 }], announce: 'And the second, with commentary.' },
     ],
   }),
+
+  defineLevel({
+    id: 'c4-l5',
+    campaignId: 'sample-vault',
+    index: 5,
+    name: 'The Back Catalogue',
+    wing: 'hiphop',
+    poster: {
+      headline: 'EVERY BAR YOU EVER WROTE, MONETISED',
+      lines: [
+        'The Vault has been running long enough to pay for itself, twice, in a currency nobody audits.',
+        'Which is exactly the sort of thing that gets a basement visited by people with letterheads.',
+      ],
+    },
+    seed: 808005,
+    startRoyalties: 1600,
+    capacity: 38,
+    width: 46,
+    height: 34,
+    veinDensity: 0.09,
+    startingCreatures: [
+      { creature: 'roadie-ogre', count: 4 },
+      { creature: 'rapper-golem', count: 3 },
+      { creature: 'beatsmith-sprite', count: 3 },
+    ],
+    rooms: HIPHOP_ROOMS,
+    spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    objectives: [
+      { kind: 'royalties', amount: 9000, label: 'Bank 9000 Royalties' },
+      { kind: 'room', room: 'sample-vault', tiles: 10, label: 'Run a 10-tile Sample Vault' },
+      { kind: 'defeat', enemy: 'eviction-warlord', count: 3, label: 'See off three Warlords' },
+    ],
+    hints: [
+      { when: { kind: 'start' }, text: 'The Sample Vault only pays while there is stock in the Royalties Vault. Do not spend it all.' },
+      { when: { kind: 'room', room: 'sample-vault' }, text: 'More Vault tiles means a bigger yield. It compounds; start early.' },
+      { when: { kind: 'elapsed', seconds: 480 }, text: 'Three Warlords, and every one of them makes for the money.' },
+    ],
+    raids: [
+      { at: 130, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Servers of documents, not of drinks.' },
+      { at: 260, enemies: [{ enemy: 'eviction-warlord', count: 1 }], announce: 'The first letterhead.' },
+      { at: 400, enemies: [{ enemy: 'comment-sniper', count: 3 }, { enemy: 'critique-cleric', count: 1 }], announce: 'Opinion, from a safe distance.' },
+      { at: 540, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'The second, escorted.' },
+      { at: 700, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'critique-cleric', count: 2 }], announce: 'The third. They have run out of new tactics and gone back to volume.' },
+    ],
+  }),
 ]

@@ -171,4 +171,49 @@ export const CAMPAIGN_6_LEVELS: LevelDef[] = [
       { at: 600, enemies: [{ enemy: 'server-farm', count: 1 }, { enemy: 'playlist-paladin', count: 1 }], announce: 'All of it at once, now, to see what you do.' },
     ],
   }),
+
+  defineLevel({
+    id: 'c6-l5',
+    campaignId: 'kindling-hall',
+    index: 5,
+    name: 'The Long Night',
+    wing: 'folk',
+    poster: {
+      headline: 'NOBODY LEAVES BEFORE THE LAST SONG',
+      lines: [
+        'The hall has been full since teatime and the fire has not gone out once.',
+        'Everything the Algorithm has left to try, it tries tonight, and it tries it all at once.',
+      ],
+    },
+    seed: 6060005,
+    startRoyalties: 1600,
+    capacity: 42,
+    width: 46,
+    height: 34,
+    startingCreatures: [
+      { creature: 'roadie-ogre', count: 4 },
+      { creature: 'campfire-elder', count: 3 },
+      { creature: 'banjo-sprite', count: 4 },
+      { creature: 'session-player', count: 2 },
+    ],
+    rooms: FOLK_ROOMS,
+    spells: [...CORE_SPELLS, 'mosh-pit', 'viral-moment'],
+    objectives: [
+      { kind: 'survive', seconds: 780, label: 'Keep the fire lit for 13 minutes' },
+      { kind: 'creatures', amount: 28, label: 'Have 28 creatures round the fire' },
+      { kind: 'room', room: 'campfire-ring', tiles: 9, label: 'Build a 9-tile Campfire Ring' },
+    ],
+    hints: [
+      { when: { kind: 'start' }, text: 'A Campfire Ring is worth more the more people stand in it. Build it big, keep them home.' },
+      { when: { kind: 'creatures', atLeast: 20 }, text: 'A crowd this size eats. A Merch Table that cannot keep up costs you loyalty.' },
+      { when: { kind: 'elapsed', seconds: 600 }, text: 'This is the last night before the last basement. Nothing you save carries over.' },
+    ],
+    raids: [
+      { at: 120, enemies: [{ enemy: 'ar-scout', count: 3 }], announce: 'Somebody has been telling people about the fire.' },
+      { at: 250, enemies: [{ enemy: 'playlist-paladin', count: 2 }], announce: 'Radio would like one for an advert. Again.' },
+      { at: 390, enemies: [{ enemy: 'comment-sniper', count: 4 }, { enemy: 'critique-cleric', count: 1 }], announce: 'Four at the back, one with a byline.' },
+      { at: 520, enemies: [{ enemy: 'server-farm', count: 2 }, { enemy: 'algorithm-wraith', count: 2 }], announce: 'It has started installing itself in the walls of a folk hall.' },
+      { at: 660, enemies: [{ enemy: 'eviction-warlord', count: 1 }, { enemy: 'playlist-paladin', count: 2 }], announce: 'And the landlord, who has heard there is a fire indoors.' },
+    ],
+  }),
 ]
