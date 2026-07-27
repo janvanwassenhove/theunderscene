@@ -59,7 +59,7 @@ describe('Simulation setup', () => {
 })
 
 describe('Digging', () => {
-  it('only accepts designations on reachable, seen rock', () => {
+  it('accepts a designation on any diggable rock', () => {
     const sim = new Simulation(LEVEL)
     const rock = findFrontierRock(sim)
     expect(sim.designate(rock.x, rock.y, true)).toBe(true)
@@ -68,6 +68,26 @@ describe('Digging', () => {
     // Floor is not diggable, and neither is the level border.
     expect(sim.designate(LEVEL.heart.x, LEVEL.heart.y, true)).toBe(false)
     expect(sim.designate(0, 0, true)).toBe(false)
+  })
+
+  it('lets you plan a tunnel out into the dark, revealing just that tile', () => {
+    const sim = new Simulation(LEVEL)
+
+    // Somewhere well beyond anything explored.
+    let far: { x: number; y: number } | null = null
+    for (let y = 1; y < sim.grid.height - 1 && !far; y++) {
+      for (let x = 1; x < sim.grid.width - 1 && !far; x++) {
+        if (sim.grid.diggable(x, y) && !sim.grid.seen[sim.grid.idx(x, y)]) far = { x, y }
+      }
+    }
+    expect(far, 'level is fully explored at start').not.toBeNull()
+
+    expect(sim.designate(far!.x, far!.y, true)).toBe(true)
+    expect(sim.grid.designated[sim.grid.idx(far!.x, far!.y)]).toBe(1)
+    // The marked tile becomes visible; the dark around it stays dark.
+    expect(sim.grid.seen[sim.grid.idx(far!.x, far!.y)]).toBe(1)
+    const neighbours = sim.grid.neighbours(far!.x, far!.y)
+    expect(neighbours.every((n) => sim.grid.seen[sim.grid.idx(n.x, n.y)] === 1)).toBe(false)
   })
 
   it('clears a designated tile and claims the ground behind it', () => {
@@ -83,6 +103,35 @@ describe('Digging', () => {
     expect(sim.grid.claimed[i]).toBe(1)
     expect(sim.grid.designated[i]).toBe(0)
     if (wasVein) expect(sim.grid.pile[i]).toBeGreaterThan(0)
+  })
+
+  it('claims corridors the crew walks, not just the rock they break', () => {
+    const sim = new Simulation(LEVEL)
+    const crew = sim.creatures[0]!
+
+    // Levels ship with corridors nobody dug, and pulling up a bridge leaves
+    // floor behind that is nobody's. Stand in for both by disowning a tile the
+    // crew can reach.
+    let target: { x: number; y: number } | null = null
+    let path: ReturnType<typeof findPath> = null
+    for (let y = 0; y < sim.grid.height && !path; y++) {
+      for (let x = 0; x < sim.grid.width && !path; x++) {
+        if (sim.grid.kindAt(x, y) !== TileKind.Floor) continue
+        if (Math.hypot(x - crew.x, y - crew.y) < 2) continue
+        path = findPath(sim.grid, crew, { x, y })
+        if (path) target = { x, y }
+      }
+    }
+    expect(target, 'no reachable floor to disown').not.toBeNull()
+    const i = sim.grid.idx(target!.x, target!.y)
+    sim.grid.claimed[i] = 0
+
+    crew.path = path!
+    crew.job = { kind: 'goto', tx: target!.x, ty: target!.y }
+    crew.state = 'moving'
+    run(sim, 120)
+
+    expect(sim.grid.claimed[i]).toBe(1)
   })
 })
 

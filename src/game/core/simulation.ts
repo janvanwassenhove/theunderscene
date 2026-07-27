@@ -258,16 +258,19 @@ export class Simulation {
   // ── Player actions ────────────────────────────────────────────────────────
 
   /**
-   * Marks or unmarks a rock tile for digging. Any rock you can see can be
-   * marked, reachable or not — an unreachable mark simply sits there as a plan
-   * until a tunnel gets to it, which is far less confusing than a tap that
-   * silently does nothing.
+   * Marks or unmarks a rock tile for digging.
+   *
+   * Anything diggable can be marked — seen or not, reachable or not. You plan
+   * tunnels out into the dark and the crew works towards them as the rock opens
+   * up; a mark that cannot be reached yet simply waits. Marking a tile you have
+   * not explored reveals that one tile, so the plan is visible while everything
+   * around it stays black.
    */
   designate(x: number, y: number, on: boolean): boolean {
     if (!this.grid.inBounds(x, y)) return false
     const i = this.grid.idx(x, y)
     if (!this.grid.diggable(x, y)) return false
-    if (!this.grid.seen[i]) return false
+    if (on && !this.grid.seen[i]) this.grid.seen[i] = 1
     const next = on ? 1 : 0
     if (this.grid.designated[i] === next) return false
     this.grid.designated[i] = next
@@ -1274,6 +1277,7 @@ export class Simulation {
       if (d <= remaining) {
         c.x = next.x
         c.y = next.y
+        this.claimUnderfoot(next.x, next.y)
         remaining -= d
         c.path.shift()
       } else {
@@ -1285,6 +1289,24 @@ export class Simulation {
     if (c.path.length === 0 && c.state === 'moving') {
       c.state = c.job ? stateForJob(c.job.kind) : 'idle'
     }
+  }
+
+  /**
+   * Ground your crew walks on becomes yours.
+   *
+   * Digging already claims the tile it opens, but levels ship with corridors
+   * nobody dug — and unclaimed floor is unbuildable, so it reads as somebody
+   * else's. Claiming underfoot means territory creeps outward behind the crew
+   * as they work, which is the whole point of watching the colour spread.
+   * Water is left alone: a Merch Stand is the only way across it.
+   */
+  private claimUnderfoot(x: number, y: number): void {
+    const i = this.grid.idx(x, y)
+    if (this.grid.claimed[i]) return
+    if (this.grid.kindAt(x, y) === TileKind.Water) return
+    if (!this.grid.walkable(x, y)) return
+    this.grid.claimed[i] = 1
+    this.dirty.add(i)
   }
 
   private workJob(c: Creature, workRate: number, dt: number): void {

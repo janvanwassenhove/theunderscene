@@ -230,6 +230,21 @@ export class Game {
     return this.sim.creatures.find((c) => c.id === this.selectedId) ?? null
   }
 
+  zoomBy(factor: number): void {
+    this.renderer.zoomBy(factor)
+  }
+
+  rotateView(steps: number): void {
+    this.renderer.rotateView(steps)
+  }
+
+  /** Back to the selected creature, or to the starting chamber. */
+  recentre(): void {
+    const selected = this.selectedCreature()
+    if (selected) this.renderer.centerOn(selected.x, selected.y)
+    else this.renderer.centerOn(this.sim.def.heart.x, this.sim.def.heart.y)
+  }
+
   togglePause(): void {
     this.paused = !this.paused
     this.publish()

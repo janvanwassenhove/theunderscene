@@ -6,10 +6,21 @@ import { enemy as enemyDef } from '../data/enemies'
 import { wingTheme } from '../data/wings'
 import type { Creature, Simulation } from '../core/simulation'
 import { buildAtlas, CELL_ANCHOR, type Atlas } from './atlas'
-import { BLOCK_H, depth, screenToTile, tileToScreen, TILE_H, TILE_W } from './iso'
+import {
+  BLOCK_H,
+  depth,
+  getViewRotation,
+  screenToTile,
+  setViewGrid,
+  setViewRotation,
+  tileToScreen,
+  TILE_H,
+  TILE_W,
+} from './iso'
 
 interface TileSprites {
   floor?: Sprite
+  claim?: Sprite
   block?: Sprite
   fleck?: Sprite
   designate?: Sprite
@@ -88,6 +99,7 @@ export class WorldRenderer {
       wordWrapWidth: 190,
     })
 
+    setViewGrid(sim.grid.width, sim.grid.height)
     this.tiles = new Array(sim.grid.width * sim.grid.height).fill(null).map(() => ({}))
     this.selectionSprite = this.makeSprite(this.atlas.select, this.sortLayer)
     this.selectionSprite.visible = false
@@ -126,6 +138,25 @@ export class WorldRenderer {
     const usableHeight = Math.max(160, this.app.screen.height - 150)
     const desiredTiles = 12
     this.camera.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, usableHeight / (desiredTiles * TILE_H)))
+  }
+
+  /** Turns the view 90°. The grid is untouched; only the projection changes. */
+  rotateView(steps: number): void {
+    // Keep whatever is in the middle of the screen in the middle of the screen.
+    const centre = this.screenToTileFloat(this.app.screen.width / 2, this.app.screen.height / 2)
+    setViewRotation(getViewRotation() + steps)
+    this.sim.markAllDirty()
+    this.syncTiles()
+    this.centerOn(centre.x, centre.y)
+  }
+
+  get rotation(): number {
+    return getViewRotation()
+  }
+
+  /** Stepped zoom for the on-screen buttons; pinch uses zoomAt directly. */
+  zoomBy(factor: number): void {
+    this.zoomAt(this.app.screen.width / 2, this.app.screen.height / 2, factor)
   }
 
   centerOn(tileX: number, tileY: number): void {
@@ -259,8 +290,13 @@ export class WorldRenderer {
       setSprite('floor', this.atlas.floorRoom, this.groundLayer, def.color, 0)
     } else {
       const claimed = grid.claimed[index] === 1
-      setSprite('floor', this.atlas.floor, this.groundLayer, claimed ? theme.floor : 0x2f2b28, 0)
+      setSprite('floor', this.atlas.floor, this.groundLayer, claimed ? theme.floor : 0x241f1d, 0)
     }
+
+    // Owned ground carries your mark, so the basement you actually hold reads at
+    // a glance from the ground you have merely dug through.
+    const owned = !isSolid && kind !== TileKind.Water && grid.claimed[index] === 1 && !room
+    setSprite('claim', owned ? this.atlas.claim : null, this.groundLayer, theme.light, 1, 0.75)
 
     // Solids: a raised block, plus gold flecks for veins.
     if (isSolid) {

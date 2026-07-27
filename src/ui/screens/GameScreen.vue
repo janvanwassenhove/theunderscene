@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import TopBar from '../hud/TopBar.vue'
 import BottomDock from '../hud/BottomDock.vue'
 import SideDrawer from '../hud/SideDrawer.vue'
+import ViewControls from '../hud/ViewControls.vue'
 import Sheet from '../hud/Sheet.vue'
 import ToastHost from '../hud/ToastHost.vue'
 import type { Toast } from '../hud/toast'
@@ -147,6 +148,11 @@ function finishLevel() {
         @speed="setSpeed"
       />
       <SideDrawer :hud="hud" @select="selectCreature" />
+      <ViewControls
+        @zoom="(f: number) => game?.zoomBy(f)"
+        @rotate="(s: number) => game?.rotateView(s)"
+        @recentre="() => game?.recentre()"
+      />
       <BottomDock :hud="hud" @tool="setTool" @spell="castSpell" />
 
       <div v-if="selected" class="inspect zine">
@@ -170,8 +176,9 @@ function finishLevel() {
     <Sheet v-if="menuOpen" title="Pause" @close="menuOpen = false">
       <p>{{ level.name }} — everything is saved automatically, including when you leave.</p>
       <p class="mono small">
-        Tools: Dig marks rock, Build drags out a room, two fingers pan and pinch to zoom, long-press
-        inspects anything.
+        Dig marks rock — including rock you have not reached yet, so you can plan a tunnel out
+        into the dark. Build drags out a room. Two fingers pan and pinch; the buttons on the left
+        zoom, turn the view and recentre. Long-press inspects anything.
       </p>
       <template #actions>
         <button class="primary" @click="menuOpen = false">Back to it</button>
