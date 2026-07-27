@@ -97,6 +97,26 @@ a version 3 save loads with neither, which is exactly right.
 ground underfoot and the two economy rules. `tests/content.test.ts` now also
 walks every level's trap list.
 
+## Placeholder legibility pass
+
+Still placeholders — no style is being invented here, and the wing style bibles
+in `roadmap.md` remain step one of the real pipeline. This is readability only.
+
+- **Bodies** carry a head, shoulders and feet rather than being one lozenge, so
+  a crowd on a 64px tile reads as individuals. Three builds, three head heights,
+  one shared face frame offset per build.
+- **Everything moves.** Idle is a slow breath, walking is a bounce, working and
+  fighting keep the bob they had, and every actor faces the way it is going —
+  in *screen* space, so a turn of the view flips them with it.
+- **Role pips** at the feet: worker, fighter, support, economy, taken straight
+  from `CreatureDef.role`.
+- **Rooms** get an outline on their boundary tiles and furniture scattered over
+  a third of them. Which furniture comes from the room's `effects` — a bed for
+  `lair`, coins for `treasury`, a speaker for `buzz` — never from its id, so a
+  new room in the data is furnished without touching the renderer.
+- **Rock** is cracked on a third of tiles, picked from a coordinate hash so it
+  never reshuffles when the view turns or a save reloads.
+
 ## Balance harness
 
 `scripts/balance.ts` plays every level headlessly with an unclever bot and

@@ -48,9 +48,11 @@ campaigns deliberately do not:
 
 ## What is left
 
-- **Art.** Every sprite is still a procedurally drawn placeholder at final size
-  and proportion. This is the largest remaining piece of work and it is a
-  production pipeline, not an engineering one — see below.
+- **Art.** Every sprite is still procedurally drawn, at final size and
+  proportion. The placeholders have had a legibility pass — bodies with heads
+  and feet, idle and walk animation, per-effect room fixtures, room outlines,
+  rock variation — but they are still placeholders, and the finished look is a
+  production pipeline rather than an engineering task. See below.
 - **The Royalties economy.** Measured, not guessed: passive income runs
   20–50/min against a wage bill of 80–414/min at the rosters the levels
   themselves ask for, so every `Bank N Royalties` objective is funded only by
@@ -62,9 +64,18 @@ campaigns deliberately do not:
 
 ## Art pipeline
 
-Placeholders first, on purpose. Phase 0 and 1 run on procedurally drawn flat
+Placeholders first, on purpose. The whole game runs on procedurally drawn flat
 silhouettes at final size and proportion (`src/game/render/atlas.ts`); the
 coding side never invents finished-looking art.
+
+The placeholders have had one legibility pass, which is as far as this side
+should go. Bodies carry a head, shoulders and feet so a crowd reads as
+individuals at tile size; everything breathes when idle, bounces when walking
+and faces the way it is going; rooms get an outline on their boundary tiles and
+furniture chosen from their *effects* rather than their ids, so a new room in
+the data is furnished without a renderer change; and a third of the rock is
+cracked from a coordinate hash so a wall is not one block repeated. None of that
+is a style — it is readability, and the style bible still comes first below.
 
 Per wing, in order:
 

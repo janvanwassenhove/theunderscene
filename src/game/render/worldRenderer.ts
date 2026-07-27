@@ -1,12 +1,13 @@
 import { Application, Container, Sprite, Text, TextStyle, type Texture } from 'pixi.js'
-import { TileKind } from '../data/types'
+import { TileKind, type RoomEffects } from '../data/types'
 import { room as roomDef } from '../data/rooms'
 import { creature as creatureDef } from '../data/creatures'
+import type { CreatureRole } from '../data/types'
 import { enemy as enemyDef } from '../data/enemies'
 import { trap as trapDef } from '../data/traps'
 import { wingTheme } from '../data/wings'
 import type { Creature, Simulation } from '../core/simulation'
-import { buildAtlas, CELL_ANCHOR, type Atlas } from './atlas'
+import { buildAtlas, CELL_ANCHOR, type Atlas, type AtlasKey } from './atlas'
 import {
   BLOCK_H,
   depth,
@@ -22,6 +23,9 @@ import {
 interface TileSprites {
   floor?: Sprite
   claim?: Sprite
+  edge?: Sprite
+  prop?: Sprite
+  crack?: Sprite
   trap?: Sprite
   block?: Sprite
   fleck?: Sprite
@@ -39,7 +43,14 @@ interface ActorView {
   barBg: Sprite
   barFill: Sprite
   threat?: Sprite
+  role?: Sprite
   bark?: Text
+  /** Where the eyes sit for this build, before any bob is added. */
+  faceBase: number
+  /** Last drawn tile position, for working out which way it is facing. */
+  lastX: number
+  lastY: number
+  facing: number
 }
 
 const MIN_ZOOM = 0.45
@@ -304,6 +315,16 @@ export class WorldRenderer {
     if (isSolid) {
       const tint = kind === TileKind.Bedrock ? 0x191519 : theme.rock
       setSprite('block', this.atlas.block, this.sortLayer, tint, depth(x, y))
+      // A third of the rock is cracked, picked from the coordinates so it never
+      // reshuffles when the view turns or a save is reloaded.
+      setSprite(
+        'crack',
+        kind === TileKind.Rock && hash(x, y) % 3 === 0 ? this.atlas.blockCrack : null,
+        this.sortLayer,
+        0xffffff,
+        depth(x, y) + 1,
+        0.8,
+      )
       setSprite(
         'fleck',
         kind === TileKind.Vein ? this.atlas.blockFleck : null,
@@ -314,6 +335,33 @@ export class WorldRenderer {
     } else {
       setSprite('block', null, this.sortLayer, 0, 0)
       setSprite('fleck', null, this.sortLayer, 0, 0)
+      setSprite('crack', null, this.sortLayer, 0, 0)
+    }
+
+    // A room gets an outline on its boundary tiles and furniture on some of the
+    // rest. Which furniture comes from the room's effects, never from its id,
+    // so a new room in the data is furnished without touching this file.
+    if (room) {
+      const def = roomDef(room.def)
+      const onEdge = grid
+        .neighbours(x, y)
+        .some((n) => grid.roomId[grid.idx(n.x, n.y)] !== grid.roomId[index])
+      setSprite('edge', onEdge ? this.atlas.roomEdge : null, this.groundLayer, def.accent, 2, 0.55)
+      const fixture = fixtureFor(def.effects)
+      // Scattered over a third of the tiles. Not gated on being an interior
+      // tile: a four-tile room is all edge, and those are most of them.
+      const wantsProp = hash(x, y) % 3 === 0 && room.tiles >= def.minTiles
+      setSprite(
+        'prop',
+        fixture && wantsProp ? this.atlas[fixture] : null,
+        this.sortLayer,
+        def.accent,
+        depth(x, y) + 1,
+        0.85,
+      )
+    } else {
+      setSprite('edge', null, this.groundLayer, 0, 0)
+      setSprite('prop', null, this.sortLayer, 0, 0)
     }
 
     setSprite(
@@ -346,18 +394,14 @@ export class WorldRenderer {
       let view = this.creatureViews.get(c.id)
       if (!view) {
         const def = creatureDef(c.def)
-        view = this.createActorView(def.build, def.color, def.accent, false)
+        view = this.createActorView(def.build, def.color, def.accent, false, def.role)
         this.creatureViews.set(c.id, view)
       }
       const { sx, sy } = tileToScreen(c.x, c.y)
       view.root.position.set(sx, sy)
       view.root.zIndex = depth(c.x, c.y) + 4
       view.carry.visible = c.carrying > 0
-      const working = c.state === 'digging' || c.state === 'hauling' || c.state === 'training'
-      const fighting = c.state === 'fighting'
-      // A tiny bob while working: cheap, and it stops the basement looking dead.
-      view.body.y = working || fighting ? Math.sin(this.sim.elapsed * (fighting ? 14 : 9) + c.id) * 2 : 0
-      view.face.y = view.body.y
+      this.animateActor(view, c.id, c.x, c.y, c.state)
       this.setBar(view, c.hp / c.maxHp, 0x7fd6a2)
       this.syncBark(c, view)
     }
@@ -385,6 +429,8 @@ export class WorldRenderer {
       view.root.position.set(sx, sy)
       view.root.zIndex = depth(e.x, e.y) + 4
       view.carry.visible = e.carrying > 0
+      const structure = enemyDef(e.def).structure === true
+      this.animateActor(view, e.id, e.x, e.y, structure ? 'idle' : e.state)
       // Beaten intruders lie down; captives sit quietly in the Contract Office.
       const down = e.state === 'downed'
       view.body.rotation = down ? 1.3 : 0
@@ -399,6 +445,44 @@ export class WorldRenderer {
       view.root.destroy({ children: true })
       this.enemyViews.delete(id)
     }
+  }
+
+  /**
+   * Everything alive moves a little, and everything moving faces where it is
+   * going. Two lines of trigonometry buys more life than any amount of detail
+   * in a 26-pixel silhouette.
+   */
+  private animateActor(
+    view: ActorView,
+    id: number,
+    x: number,
+    y: number,
+    state: string,
+  ): void {
+    const dx = x - view.lastX
+    const dy = y - view.lastY
+    const moved = Math.hypot(dx, dy)
+    view.lastX = x
+    view.lastY = y
+
+    // Screen-space left/right, so a turn of the view flips them with it.
+    if (moved > 0.004) {
+      const here = tileToScreen(x, y)
+      const back = tileToScreen(x - dx, y - dy)
+      if (Math.abs(here.sx - back.sx) > 0.01) view.facing = here.sx > back.sx ? 1 : -1
+    }
+    view.body.scale.x = view.facing
+
+    const t = this.sim.elapsed
+    let bob: number
+    if (state === 'fighting') bob = Math.sin(t * 14 + id) * 2.5
+    else if (state === 'digging' || state === 'hauling' || state === 'training') bob = Math.sin(t * 9 + id) * 2
+    else if (moved > 0.004) bob = -Math.abs(Math.sin(t * 11 + id)) * 2.5
+    // Idle is a slow breath rather than nothing at all.
+    else bob = Math.sin(t * 1.8 + id) * 0.7
+
+    view.body.y = bob
+    view.face.y = view.faceBase + bob
   }
 
   /** Health bars only appear once something has actually been hit. */
@@ -416,6 +500,7 @@ export class WorldRenderer {
     color: number,
     accent: number,
     isEnemy: boolean,
+    role?: CreatureRole,
   ): ActorView {
     const root = new Container()
     const shadow = new Sprite(this.atlas.shadow)
@@ -433,6 +518,9 @@ export class WorldRenderer {
     }
     body.tint = color
     face.tint = accent
+    // One face frame, three heads at three heights.
+    const faceBase = build === 'tall' ? -7 : build === 'wisp' ? 9 : 0
+    face.y = faceBase
     carry.tint = 0xffd166
     carry.y = -BLOCK_H - 12
     carry.visible = false
@@ -445,6 +533,20 @@ export class WorldRenderer {
     barFill.anchor.set(CELL_ANCHOR.x - 0.25, CELL_ANCHOR.y)
     barFill.visible = false
 
+    // A pip at the feet says what this one is for. Beside the shadow rather
+    // than above the head, where the bark and the health bar already live.
+    let roleMark: Sprite | undefined
+    if (role) {
+      roleMark = new Sprite(this.atlas[ROLE_MARKS[role]])
+      roleMark.anchor.set(CELL_ANCHOR.x, CELL_ANCHOR.y)
+      roleMark.tint = accent
+      roleMark.alpha = 0.55
+      roleMark.x = 13
+      roleMark.y = -2
+      roleMark.scale.set(0.8)
+      root.addChild(roleMark)
+    }
+
     let threat: Sprite | undefined
     if (isEnemy) {
       threat = new Sprite(this.atlas.threat)
@@ -455,7 +557,21 @@ export class WorldRenderer {
     }
 
     this.sortLayer.addChild(root)
-    return { root, body, face, shadow, carry, barBg, barFill, threat }
+    return {
+      root,
+      body,
+      face,
+      shadow,
+      carry,
+      barBg,
+      barFill,
+      threat,
+      role: roleMark,
+      faceBase,
+      lastX: 0,
+      lastY: 0,
+      facing: 1,
+    }
   }
 
   private syncBark(c: Creature, view: ActorView): void {
@@ -518,4 +634,33 @@ export class WorldRenderer {
       sprite.visible = true
     })
   }
+}
+
+/**
+ * Which fixture a room shows, keyed off what the room actually does. Effects,
+ * never ids: a new room in the data is furnished the moment it declares an
+ * effect, without a renderer change.
+ */
+function fixtureFor(effects: RoomEffects | undefined): AtlasKey | null {
+  if (!effects) return null
+  if (effects.portal || effects.prison || effects.counter) return 'propDoor'
+  if (effects.lair) return 'propBed'
+  if (effects.food) return 'propTable'
+  if (effects.buzz || effects.cypher || effects.elite) return 'propSpeaker'
+  if (effects.training || effects.communal || effects.echo) return 'propRing'
+  if (effects.treasury || effects.royalties || effects.refine) return 'propCoin'
+  return null
+}
+
+const ROLE_MARKS: Record<CreatureRole, AtlasKey> = {
+  worker: 'roleWorker',
+  fighter: 'roleFighter',
+  support: 'roleSupport',
+  economy: 'roleEconomy',
+}
+
+/** Stable per-tile scatter. Deterministic so nothing reshuffles on a redraw. */
+function hash(x: number, y: number): number {
+  const n = Math.imul(x + 1, 0x27d4eb2d) ^ Math.imul(y + 1, 0x165667b1)
+  return (n ^ (n >>> 15)) >>> 0
 }
