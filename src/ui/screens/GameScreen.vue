@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import TopBar from '../hud/TopBar.vue'
 import BottomDock from '../hud/BottomDock.vue'
 import SideDrawer from '../hud/SideDrawer.vue'
-import ViewControls from '../hud/ViewControls.vue'
 import Sheet from '../hud/Sheet.vue'
 import ToastHost from '../hud/ToastHost.vue'
 import type { Toast } from '../hud/toast'
@@ -148,11 +147,6 @@ function finishLevel() {
         @speed="setSpeed"
       />
       <SideDrawer :hud="hud" @select="selectCreature" />
-      <ViewControls
-        @zoom="(f: number) => game?.zoomBy(f)"
-        @rotate="(s: number) => game?.rotateView(s)"
-        @recentre="() => game?.recentre()"
-      />
       <BottomDock :hud="hud" @tool="setTool" @spell="castSpell" />
 
       <div v-if="selected" class="inspect zine">
@@ -178,8 +172,12 @@ function finishLevel() {
       <p class="mono small">
         Dig marks rock — including rock you have not reached yet, so you can plan a tunnel out
         into the dark. Build drags out a room. Traps go one per tile on ground you own, and Tear
-        down lifts them again. Two fingers pan and pinch; the buttons on the left zoom, turn the
-        view and recentre. Long-press inspects anything.
+        down lifts them again.
+      </p>
+      <p class="mono small">
+        Two fingers pan, pinch to zoom and twist to turn the basement round. Double-tap recentres
+        on whoever is selected. Long-press inspects anything. On a desktop: wheel zooms, shift and
+        wheel turns, and Q / E / + / − / 0 do the same from the keyboard.
       </p>
       <template #actions>
         <button class="primary" @click="menuOpen = false">Back to it</button>

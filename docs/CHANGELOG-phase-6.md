@@ -17,10 +17,17 @@ The world view turns and zooms.
 - `WorldRenderer.rotateView(steps)` keeps whatever was in the middle of the
   screen in the middle of the screen through a turn. `zoomBy(factor)` is the
   stepped version of the pinch that was already there.
-- `ViewControls.vue` is a two-column button pad on the left: zoom in and out,
-  turn left and right, recentre. Two columns rather than one because five
-  stacked 44px buttons are taller than a landscape phone viewport and the
-  bottom ones ended up under the dock.
+- It is all gesture, no chrome. A button pad shipped first and was cut: on a
+  landscape phone the viewport is under 400px tall and a column of 44px buttons
+  ate the left edge of a screen that has very little of it. Two fingers pan and
+  pinch as before, and **twisting them turns the basement** — 60° of wrist per
+  quarter-turn, generous on purpose so a slightly crooked pinch never spins the
+  view. Double-tap recentres. On a desktop the wheel zooms, shift and wheel
+  turns, and Q / E / + / − / 0 do the same from the keyboard.
+- `tests/gestures.test.ts` drives the DOM events directly: a twist turns the
+  right way, a straight pinch never turns at all, a small crooked wobble is
+  tolerated, and adding a third finger retakes the reference rather than
+  snapping the view round.
 - `tests/iso.test.ts` round-trips every third tile at all four orientations,
   asserts depth still sorts by screen row, and asserts the block-height
   correction is still needed and still correct after a turn.
@@ -84,10 +91,11 @@ a version 3 save loads with neither, which is exactly right.
 
 ## Tests
 
-80 passing across 8 files. New: `tests/iso.test.ts` (5), `tests/traps.test.ts`
-(8), three ranged-intruder cases in `tests/combat.test.ts`, and one in
-`tests/simulation.test.ts` for claiming ground underfoot. `tests/content.test.ts`
-now also walks every level's trap list.
+85 passing across 9 files. New: `tests/iso.test.ts` (5), `tests/traps.test.ts`
+(8), `tests/gestures.test.ts` (5), three ranged-intruder cases in
+`tests/combat.test.ts`, and three in `tests/simulation.test.ts` for claiming
+ground underfoot and the two economy rules. `tests/content.test.ts` now also
+walks every level's trap list.
 
 ## Balance harness
 

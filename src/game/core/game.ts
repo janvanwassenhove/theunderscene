@@ -121,15 +121,52 @@ export class Game {
       onDragEnd: () => this.handleDragEnd(),
       onPan: (dx, dy) => this.renderer.panBy(dx, dy),
       onZoom: (factor, at) => this.renderer.zoomAt(at.x, at.y, factor),
+      onRotate: (steps) => this.renderer.rotateView(steps),
       onHover: (p) => this.renderer.setCursor(p ? this.renderer.screenToTileCoord(p.x, p.y) : null),
     })
     this.applyToolMode()
+    window.addEventListener('keydown', this.onKeyDown)
     audio.startDrone(def.wing)
     this.renderer.app.ticker.add(() => this.frame())
     this.publish()
   }
 
+  /**
+   * Keyboard is a desktop convenience, not a supported control scheme — the
+   * brief is mobile-first and every one of these has a gesture behind it.
+   */
+  private onKeyDown = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return
+    const target = e.target as HTMLElement | null
+    if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return
+    switch (e.key) {
+      case 'q':
+      case 'Q':
+        this.rotateView(-1)
+        break
+      case 'e':
+      case 'E':
+        this.rotateView(1)
+        break
+      case '+':
+      case '=':
+        this.zoomBy(1.25)
+        break
+      case '-':
+      case '_':
+        this.zoomBy(0.8)
+        break
+      case '0':
+        this.recentre()
+        break
+      default:
+        return
+    }
+    e.preventDefault()
+  }
+
   destroy(): void {
+    window.removeEventListener('keydown', this.onKeyDown)
     audio.stopDrone()
     this.input?.destroy()
     this.renderer.destroy()
