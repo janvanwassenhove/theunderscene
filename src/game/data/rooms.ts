@@ -204,7 +204,7 @@ export const ROOMS: RoomDef[] = [
     color: 0x3a3644,
     accent: 0xb7a4e8,
     blurb: 'Very slow, and it never decays. The wing\u2019s stability anchor.',
-    effects: { buzz: { perMinutePerTile: 1.8 } },
+    effects: { buzz: { perMinutePerTile: 1.8, stable: true } },
     attracts: [{ creature: 'shoegaze-wraith', minTiles: 4, weight: 3 }],
   },
   {
@@ -243,7 +243,7 @@ export const ROOMS: RoomDef[] = [
     color: 0x4a3f26,
     accent: 0xd4af37,
     blurb: 'Flips what you already have into something worth more. Needs stock.',
-    effects: { refine: { royaltiesPerMinute: 14, requiresStock: 250 } },
+    effects: { refine: { royaltiesPerMinutePerTile: 3.5, requiresStock: 250 } },
     attracts: [{ creature: 'beatsmith-sprite', minTiles: 4, weight: 3 }],
   },
   {

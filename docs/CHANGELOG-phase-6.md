@@ -84,10 +84,27 @@ a version 3 save loads with neither, which is exactly right.
 
 ## Tests
 
-78 passing across 8 files. New: `tests/iso.test.ts` (5), `tests/traps.test.ts`
+80 passing across 8 files. New: `tests/iso.test.ts` (5), `tests/traps.test.ts`
 (8), three ranged-intruder cases in `tests/combat.test.ts`, and one in
 `tests/simulation.test.ts` for claiming ground underfoot. `tests/content.test.ts`
 now also walks every level's trap list.
+
+## Balance harness
+
+`scripts/balance.ts` plays every level headlessly with an unclever bot and
+reports how far it gets, plus two static checks that need no play at all. It
+found three bugs, all now fixed, each one a case of the data promising something
+the engine did not do: `drain` took Buzz level-wide while its own blurb said
+"nearby rooms", the Reverb Chamber's stated "it never decays" was never
+implemented, and the Sample Vault's yield ignored its own tile count even though
+a level objective asks you to run a ten-tile one. A missed payday also now
+scales its loyalty hit by the shortfall instead of charging a flat 18 whether
+you were ten Royalties short or paid nobody at all.
+
+It also measured the thing the roadmap had only ever asserted: the Royalties
+economy is short by 130–390/min on every level that asks you to bank any. That
+is a design decision rather than a bug, and `docs/balance.md` lays out the
+numbers and the four ways out without picking one.
 
 ## Still outstanding
 

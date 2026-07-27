@@ -12,7 +12,8 @@ export type EnemyBehaviour =
   | { kind: 'capture'; captureSeconds: number }
   | { kind: 'melee' }
   | { kind: 'ranged'; range: number }
-  | { kind: 'drain'; buzzPerSecond: number }
+  /** Drains Buzz while it is within `radius` of a Buzz-producing room. */
+  | { kind: 'drain'; buzzPerSecond: number; radius: number }
   | { kind: 'timer'; seconds: number; debuffRoom: string; debuffSeconds: number }
   | { kind: 'curse'; workRateMul: number; seconds: number }
 
@@ -85,11 +86,11 @@ export const ENEMIES: EnemyDef[] = [
     aggro: 3,
     target: 'venue',
     convertSeconds: 26,
-    behaviour: { kind: 'drain', buzzPerSecond: 1.5 },
+    behaviour: { kind: 'drain', buzzPerSecond: 1.5, radius: 5 },
     color: 0x5ad6c0,
     accent: 0xa8fff0,
     build: 'wisp',
-    blurb: 'Does no damage. Drains Buzz straight out of nearby rooms instead.',
+    blurb: 'Does no damage. Drains Buzz out of whichever loud room it reaches.',
   },
   {
     id: 'noise-inspector',
@@ -173,11 +174,11 @@ export const ENEMIES: EnemyDef[] = [
     target: 'venue',
     convertSeconds: 999,
     structure: true,
-    behaviour: { kind: 'drain', buzzPerSecond: 2.2 },
+    behaviour: { kind: 'drain', buzzPerSecond: 2.2, radius: 8 },
     color: 0x2f3b3a,
     accent: 0x6ef0c0,
     build: 'squat',
-    blurb: 'Does not move, does not fight, just quietly drains the room. Break it.',
+    blurb: 'Does not move, does not fight, just drains whatever is loud nearby. Break it.',
   },
 ]
 
@@ -201,7 +202,7 @@ export const ALGORITHM_OVERLORD: {
     {
       id: 'server-farms',
       name: 'Server Farms',
-      summary: 'Spawns Server Farm structures that drain Buzz level-wide until destroyed.',
+      summary: 'Spawns Server Farm structures that drain Buzz from whatever is loud near them.',
     },
     {
       id: 'flatten',

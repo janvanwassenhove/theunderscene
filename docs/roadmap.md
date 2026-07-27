@@ -51,9 +51,13 @@ campaigns deliberately do not:
 - **Art.** Every sprite is still a procedurally drawn placeholder at final size
   and proportion. This is the largest remaining piece of work and it is a
   production pipeline, not an engineering one — see below.
-- **Balance by a human.** Every level runs, is connected and is internally
-  consistent; none has been played to completion by a person. Objective
-  thresholds are educated guesses.
+- **The Royalties economy.** Measured, not guessed: passive income runs
+  20–50/min against a wage bill of 80–414/min at the rosters the levels
+  themselves ask for, so every `Bank N Royalties` objective is funded only by
+  the map's finite veins. Four honest directions out of it, and picking one is a
+  design call — see `balance.md`, and `scripts/balance.ts` to check any answer.
+- **Balance by a human.** A bot clears 10 of 36 levels unaided. Nothing has been
+  played to completion by a person.
 - **On-device testing.** Still the brief's own bar for done.
 
 ## Art pipeline

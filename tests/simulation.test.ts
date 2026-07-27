@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation } from '../src/game/core/simulation'
 import { findPath } from '../src/game/core/pathfinding'
 import { CAMPAIGN_0_LEVELS } from '../src/game/data/levels/campaign-0'
+import { CAMPAIGN_3_LEVELS } from '../src/game/data/levels/campaign-3'
 import { TileKind } from '../src/game/data/types'
 import type { LevelDef } from '../src/game/data/types'
 
@@ -23,6 +24,17 @@ function findFrontierRock(sim: Simulation): { x: number; y: number } {
     }
   }
   throw new Error('no frontier rock — the starting chamber is not carved')
+}
+
+/** As above, but for a named room on any level. */
+function findBuildableTilesOn(sim: Simulation, defId: string, count: number) {
+  const tiles: { x: number; y: number }[] = []
+  for (let y = 0; y < sim.grid.height && tiles.length < count; y++) {
+    for (let x = 0; x < sim.grid.width && tiles.length < count; x++) {
+      if (sim.canBuildAt(defId, x, y)) tiles.push({ x, y })
+    }
+  }
+  return tiles
 }
 
 /** A claimed, empty floor tile that a room can go on. */
@@ -369,5 +381,47 @@ describe('Reputation', () => {
     run(sim, 12)
     expect(sim.reputation).toBeGreaterThanOrEqual(0)
     expect(sim.reputation).toBeLessThanOrEqual(100)
+  })
+})
+
+describe('Economy rules the data already promised', () => {
+  it('scales a short payday\'s loyalty hit by how short it was', () => {
+    // Ten Royalties short used to cost exactly as much loyalty as paying
+    // nobody anything at all.
+    const nearlyPaid = new Simulation(LEVEL)
+    const brokeFlat = new Simulation(LEVEL)
+    const owed = nearlyPaid.creatures.length * 14
+    nearlyPaid.royalties = owed - 5
+    brokeFlat.royalties = 0
+
+    run(nearlyPaid, 95)
+    run(brokeFlat, 95)
+
+    const loyaltyOf = (sim: Simulation) =>
+      sim.creatures.reduce((sum, c) => sum + c.loyalty, 0) / sim.creatures.length
+    expect(loyaltyOf(nearlyPaid)).toBeGreaterThan(loyaltyOf(brokeFlat))
+  })
+
+  it('lets a stable Buzz room bank a floor that ambient decay cannot eat', () => {
+    // The Reverb Chamber says it never decays. Buzz decays proportionally, so
+    // without a floor its output has a hard equilibrium far below what the
+    // Shoegaze levels ask for.
+    const shoegaze = CAMPAIGN_3_LEVELS[0]!
+    const sim = new Simulation(shoegaze)
+    const tiles = findBuildableTilesOn(sim, 'reverb-chamber', 6)
+    expect(tiles.length).toBe(6)
+    sim.royalties = 5000
+    sim.build('reverb-chamber', tiles)
+
+    run(sim, 300)
+    const peak = sim.buzz
+    expect(peak).toBeGreaterThan(0)
+
+    // Tear the room down and the banked Buzz stays banked.
+    for (const t of tiles) sim.demolish(t.x, t.y)
+    run(sim, 300)
+    // Plain decay over five minutes would leave about 55% of it. What the
+    // Chamber banked is still there; only the level's starting Buzz drains.
+    expect(sim.buzz).toBeGreaterThan(peak * 0.9)
   })
 })

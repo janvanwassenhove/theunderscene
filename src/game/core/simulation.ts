@@ -174,6 +174,8 @@ export class Simulation {
   private nextTrapId = 1
   private firedRaids = new Set<number>()
   private venueDebuffUntil = 0
+  /** Buzz banked by stable rooms, which ambient decay cannot eat into. */
+  private stableFloor = 0
   private emptyRosterFor = 0
   /** The Algorithm has flattened every wing until this time. */
   private flattenUntil = 0
@@ -621,6 +623,7 @@ export class Simulation {
     const perMinute = dt / 60
 
     let buzzGain = 0
+    let stableGain = 0
     let royaltyGain = 0
     let mealGain = 0
     let moraleGain = 0
@@ -647,7 +650,7 @@ export class Simulation {
 
       // Sample Vault: flips banked Royalties into more of them, given stock.
       if (e.refine && this.royalties >= e.refine.requiresStock) {
-        royaltyGain += e.refine.royaltiesPerMinute * perMinute * roomMul
+        royaltyGain += e.refine.royaltiesPerMinutePerTile * tiles.length * perMinute * roomMul
       }
 
       // Cypher Corner: duels for stats, and Buzz off everyone watching.
@@ -662,7 +665,9 @@ export class Simulation {
       if (e.buzz) {
         // A upheld noise complaint halves everything loud for its duration.
         const quiet = this.elapsed < this.venueDebuffUntil ? 0.5 : 1
-        buzzGain += e.buzz.perMinutePerTile * tiles.length * perMinute * quiet * roomMul
+        const gain = e.buzz.perMinutePerTile * tiles.length * perMinute * quiet * roomMul
+        buzzGain += gain
+        if (e.buzz.stable) stableGain += gain
       }
       if (e.royalties) royaltyGain += e.royalties.perMinutePerTile * tiles.length * perMinute * roomMul
       if (e.food) mealGain += e.food.mealsPerMinutePerTile * tiles.length * perMinute
@@ -676,10 +681,16 @@ export class Simulation {
         ? room('dj-throne').effects?.elite?.buzzMul ?? 1
         : 1
 
-    this.buzz = Math.max(
-      0,
-      this.buzz + buzzGain * this.globalBuzzMul * eliteMul * outputMul - this.buzz * BUZZ_DECAY_PER_SECOND * dt,
-    )
+    // Decay only bites on the Buzz above whatever the stable rooms have banked.
+    // Without this a Reverb Chamber can never out-earn its own evaporation, and
+    // the wing built around it needs an impossible number of tiles to hold a
+    // number the level asks for.
+    const mul = this.globalBuzzMul * eliteMul * outputMul
+    this.stableFloor = Math.max(0, this.stableFloor + stableGain * mul)
+    const decayable = Math.max(0, this.buzz - this.stableFloor)
+    this.buzz = Math.max(0, this.buzz + buzzGain * mul - decayable * BUZZ_DECAY_PER_SECOND * dt)
+    // Anything that takes Buzz away — a drain, a cast — takes the floor with it.
+    this.stableFloor = Math.min(this.stableFloor, this.buzz)
     this.addRoyalties(royaltyGain * outputMul)
     this.tickFlatten(dt)
     this.mealsReady = Math.min(20, this.mealsReady + mealGain)
@@ -774,15 +785,27 @@ export class Simulation {
       (sum, c) => sum + (creatureDef(c.def).worksForFree ? 0 : creatureDef(c.def).wage),
       0,
     )
-    if (this.royalties >= owed) {
-      this.royalties -= owed
+    // Pay what there is. Emptying the bank outright — which is what this used
+    // to do — is a doom loop: one payday you cannot cover takes everything you
+    // had saved, so you can never cover the next one either, and any objective
+    // that asks you to bank Royalties becomes unreachable for the rest of the
+    // level. The cost of a short payday belongs in loyalty, where the player
+    // can see it and do something about it.
+    const paid = Math.min(this.royalties, owed)
+    this.royalties -= paid
+    if (paid >= owed) {
       for (const c of this.creatures) c.loyalty = Math.min(100, c.loyalty + 8)
-      this.log(`Payday: ${owed} Royalties out. Nobody says thank you.`, 'info')
-    } else {
-      this.royalties = 0
-      for (const c of this.creatures) c.loyalty = Math.max(0, c.loyalty - 18)
-      this.log('Payday missed. Loyalty takes the hit, as ever.', 'bad')
+      this.log(`Payday: ${Math.round(owed)} Royalties out. Nobody says thank you.`, 'info')
+      return
     }
+    // Coming up a little short stings; paying nobody anything is a walkout.
+    const shortfall = 1 - paid / owed
+    const hit = Math.round(4 + 16 * shortfall)
+    for (const c of this.creatures) c.loyalty = Math.max(0, c.loyalty - hit)
+    this.log(
+      `Payday short: ${Math.round(paid)} of ${Math.round(owed)} Royalties. Loyalty takes the hit, as ever.`,
+      'bad',
+    )
   }
 
   private tickAttraction(dt: number): void {
@@ -1137,7 +1160,14 @@ export class Simulation {
   private applyPassiveBehaviour(e: Enemy, def: ReturnType<typeof enemyDef>, dt: number): void {
     const behaviour = def.behaviour
     if (behaviour.kind === 'drain') {
-      this.buzz = Math.max(0, this.buzz - behaviour.buzzPerSecond * dt)
+      // It drains the room it is standing in, not the whole basement. Draining
+      // level-wide made a drain unanswerable — you could kill every wraith on
+      // the map and the Buzz still went, so any "hold N Buzz" objective on a
+      // level that sends them was arithmetic you could not win. Now it has to
+      // reach something loud, which is what makes intercepting it the play.
+      if (this.nearBuzzRoom(e.x, e.y, behaviour.radius)) {
+        this.buzz = Math.max(0, this.buzz - behaviour.buzzPerSecond * dt)
+      }
     } else if (behaviour.kind === 'timer') {
       e.timer -= dt
       if (e.timer <= 0) {
@@ -1149,6 +1179,18 @@ export class Simulation {
         e.path = []
       }
     }
+  }
+
+  /** Whether any Buzz-producing room tile is within `radius` of a point. */
+  private nearBuzzRoom(x: number, y: number, radius: number): boolean {
+    for (const [defId, tiles] of this.roomTiles) {
+      const effects = room(defId).effects
+      if (!effects?.buzz && !effects?.cypher) continue
+      for (const t of tiles) {
+        if (Math.hypot(t.x - x, t.y - y) <= radius) return true
+      }
+    }
+    return false
   }
 
   private enemyStrike(e: Enemy, def: ReturnType<typeof enemyDef>, target: Creature): void {
@@ -1945,6 +1987,7 @@ export class Simulation {
       capturedCreatures: [...this.capturedCreatures],
       firedRaids: [...this.firedRaids],
       venueDebuffUntil: this.venueDebuffUntil,
+      stableFloor: this.stableFloor,
       nextCreatureId: this.nextCreatureId,
       nextEnemyId: this.nextEnemyId,
       nextRoomId: this.nextRoomId,
@@ -1987,6 +2030,7 @@ export class Simulation {
     sim.capturedCreatures = [...(snapshot.capturedCreatures ?? [])]
     sim.firedRaids = new Set(snapshot.firedRaids ?? [])
     sim.venueDebuffUntil = snapshot.venueDebuffUntil ?? 0
+    sim.stableFloor = snapshot.stableFloor ?? 0
     sim.nextEnemyId = snapshot.nextEnemyId ?? 1
     sim.elapsed = snapshot.elapsed
     sim.royalties = snapshot.royalties
@@ -2047,6 +2091,7 @@ export interface SimSnapshot {
   capturedCreatures: string[]
   firedRaids: number[]
   venueDebuffUntil: number
+  stableFloor: number
   nextCreatureId: number
   nextEnemyId: number
   nextTrapId: number

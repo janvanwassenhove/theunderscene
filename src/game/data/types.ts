@@ -42,8 +42,15 @@ export interface RoomEffects {
   food?: { mealsPerMinutePerTile: number; royaltiesPerMeal: number }
   /** Practice Space / Moshpit Arena: experience granted per minute per tile. */
   training?: { xpPerMinutePerTile: number; royaltiesPerMinute: number; injuryChance?: number }
-  /** Any Venue-type room: Buzz generated per minute per tile. */
-  buzz?: { perMinutePerTile: number }
+  /**
+   * Any Venue-type room: Buzz generated per minute per tile.
+   *
+   * `stable` Buzz does not decay. It raises a floor the ambient decay cannot
+   * pull you below, so a slow room becomes an anchor rather than a trickle that
+   * evaporates as fast as it arrives. Draining still takes it — the floor comes
+   * down with the total — so it is protection from time, not from intruders.
+   */
+  buzz?: { perMinutePerTile: number; stable?: boolean }
   /** Merch/economy rooms: passive Royalties per minute per tile. */
   royalties?: { perMinutePerTile: number }
   /** Booking Agent's Door: creatures walk in here. */
@@ -58,8 +65,12 @@ export interface RoomEffects {
   communal?: { bonusPerCreature: number; maxBonus: number; radius: number }
   /** Rehearsal Crypt: output ramps the longer the room stays occupied. */
   echo?: { rampPerMinute: number; maxMul: number }
-  /** Sample Vault: turns banked Royalties into more of them, if you have stock. */
-  refine?: { royaltiesPerMinute: number; requiresStock: number }
+  /**
+   * Sample Vault: turns banked Royalties into more of them, if you have stock.
+   * Yield is per tile — a bigger vault flips more, which is what makes "run a
+   * ten-tile Sample Vault" an objective rather than a formality.
+   */
+  refine?: { royaltiesPerMinutePerTile: number; requiresStock: number }
   /** DJ Throne: one creature stationed here lifts the whole wing's Buzz. */
   elite?: { buzzMul: number }
   /** Glowstick Hatchery, Sneaker Vault: multiplies how fast the door swings. */
