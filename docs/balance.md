@@ -84,10 +84,9 @@ worker ×1.15), a support roughly breaks even (×0.8), and a fighter does not an
 is carried by the rest (×0.45). The Banjo Sprite works for free and earns like
 it — a loss leader who is still worth having.
 
-**Result: the bot clears 17 of 36**, and the misses have changed character. What
-is left flagged is bosses the bot cannot kill because it never casts Callback or
-concentrates the crew — a limitation of the bot, not of the level — plus two
-Buzz targets. The banking objectives have largely stopped being the problem.
+**Result: the bot clears 16 of 36**, up from 10, and the misses have changed
+character entirely. The banking objectives have largely stopped being the
+problem; what is left is mostly the Eviction Warlord.
 
 These values are a first pass, not a balance pass. `npx vite-node
 scripts/balance.ts` prints the per-level arithmetic — room income, crew earnings
@@ -101,16 +100,40 @@ That wing is *meant* to be hard going — thinner veins, higher wages, a roster 
 fighters who by design do not earn — so some of that is the design working. How
 much of it is too much is a play question.
 
+## The Eviction Warlord
+
+The bot now fights: when something serious is in the basement it Callbacks the
+crew onto the biggest thing in the room and buffs them. That was added
+specifically so the boss numbers would mean something, and they now do — **it
+still cannot kill a Warlord**, on `c0-l3`, `c1-l4`, `c2-l4` or `c4-l5`.
+
+The arithmetic: 600 HP, 26 damage a swing every 1.6s. Only three or four
+creatures can reach it at once on an isometric grid, at roughly 7 attack each on
+a 1.3s swing — call it 20 damage a second, so thirty seconds of unbroken contact.
+In thirty seconds it kills five creatures outright. A player can win that with
+kiting, Encore and terrain; a bot that walks straight at it cannot.
+
+So the honest reading is: **the Warlord is a skill check, and nobody has yet
+confirmed a human passes it.** That is the single most important thing to play.
+
+Two things were tried on the bot and left out, because they made it worse rather
+than better and tuning a bot until it agrees with you is not a balance pass:
+
+- **Healing in a fight.** Encore costs Buzz the crew needed more, and it kept
+  bodies in a losing fight rather than losing it faster. 16 cleared → 14.
+- **Callback on every intruder.** Rallying for each passing scout drained the
+  Buzz pool that levels ask you to hold. 16 cleared → 13. It is now gated to
+  threats over 150 HP or crowds of three or more.
+
 ## Other things worth a human eye
 
-- **`c3-l4 Feedback`** is the one level the fixes did not move: Buzz still sits
-  at 0. Seven Wraiths arrive over the level and the Shoegaze roster is poor at
-  fighting, so they park on the Chamber and hold it down. That may be the
-  intended shape of the level — it is a wing that cannot punch — but it needs
-  playing to know.
+- **`c6-l4 Kindling`** misses both a boss count and its banking target, the only
+  level still failing on two fronts at once.
+- **`c7-l2` Buzz under flattening** sits at 19/600. The Algorithm halves output
+  every two minutes and the Mixing Board clears it, so this is a question of
+  whether the counter-play window is wide enough — a play question.
 - **`c7-l3` Phase 3** is never reached inside the budget. The Warlord lands at
-  720s and the bot is spent by then. The wave exists and is correct; whether the
-  window is fair is a play question.
-- **Boss kills** (`c0-l3`, `c1-l4`, `c4-l4`) fail for the bot because it never
-  concentrates the crew. Callback exists precisely for that, and the bot does not
-  cast. These are the least reliable numbers in the report.
+  720s and the bot is spent by then. The wave exists and is correct.
+- **Objectives latch.** Once met they stay met, so the report can show a done
+  objective sitting below its target — `c0-l3` banks 1800 and then spends it.
+  The harness marks those "met earlier" rather than looking like a bug.

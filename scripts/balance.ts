@@ -5,7 +5,7 @@
  * far it gets against each objective inside a time budget. It is a floor, not a
  * ceiling: the bot digs, builds the rooms the objectives name plus the obvious
  * economy, and otherwise leaves the crew to their own devices. It never casts a
- * spell, never lays a trap and never manoeuvres in a fight.
+ * spell except in a fight, never lays a trap, and never retreats.
  *
  * So a level the bot clears is certainly clearable. A level it gets nowhere
  * near is a threshold worth a human look — which is the whole point, since
@@ -142,7 +142,45 @@ function topUpDigging(sim: Simulation): void {
   for (const c of candidates.slice(0, DIG_QUEUE - queued)) sim.designate(c.x, c.y, true)
 }
 
+/**
+ * The whole of the bot's combat doctrine: when something is in the basement,
+ * Callback the crew onto the biggest thing in it and buff them.
+ *
+ * Without this the bot never concentrated its crew, so every boss objective
+ * failed and said nothing about the level — the levels' own hints tell the
+ * player to do exactly this.
+ */
+function fight(sim: Simulation): void {
+  const threats = sim.enemies.filter((e) => e.state !== 'downed' && e.state !== 'captive')
+  if (threats.length === 0) return
+  const worst = threats.reduce((a, b) => (b.maxHp > a.maxHp ? b : a))
+
+  // Casting on every passing scout drains the Buzz a level may be asking you to
+  // hold, which the first version of this did and it cost more objectives than
+  // it won. Spend it on something that actually warrants it.
+  const serious = worst.maxHp >= 150 || threats.length >= 3
+  if (!serious) return
+
+  const at = { x: Math.round(worst.x), y: Math.round(worst.y) }
+  // castSpell already refuses a spell the level has not unlocked or that is on
+  // cooldown, so this is just "use it whenever it is worth using".
+  sim.castSpell('callback', at)
+
+  // Healing was tried here and made things worse: Encore costs Buzz the crew
+  // needed more than the patch-up was worth, and it kept bodies in a losing
+  // fight instead of losing it faster. Left out on purpose.
+
+  // The buffs are a nice-to-have; never burn a Buzz objective on one.
+  const buzzGoal = sim.def.objectives.find((o) => o.kind === 'buzz')
+  const target = buzzGoal && buzzGoal.kind === 'buzz' ? buzzGoal.amount : 0
+  if (sim.buzz < target) return
+  for (const id of ['mosh-pit', 'fast-forward']) {
+    if (sim.castSpell(id, at)) break
+  }
+}
+
 function act(sim: Simulation, wants: Plan[]): void {
+  fight(sim)
   topUpDigging(sim)
   // Never spend the last of it: an empty vault stalls hauling and wages, and a
   // refining room that needs stock on hand stops paying entirely. A real player
@@ -240,7 +278,10 @@ for (const def of levels) {
   for (const o of result.objectives) {
     const pct = o.target > 0 ? Math.round((o.progress / o.target) * 100) : 100
     const tick = o.done ? '✓' : pct >= 60 ? '·' : '✗'
-    console.log(`        ${tick} ${o.label.padEnd(44)} ${o.progress}/${o.target} (${pct}%)`)
+    // Objectives latch: once met they stay met, so a done one can read below
+    // its target if the money was spent again afterwards.
+    const note = o.done && o.progress < o.target ? ' (met earlier)' : ''
+    console.log(`        ${tick} ${o.label.padEnd(44)} ${o.progress}/${o.target} (${pct}%)${note}`)
     // Under a third of the way in twenty minutes is not a difficulty curve,
     // it is a number nobody checked.
     if (!o.done && pct < 34) flagged.push(`${def.id}: ${o.label} — ${o.progress}/${o.target}`)

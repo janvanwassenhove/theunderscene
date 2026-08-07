@@ -133,9 +133,12 @@ It also measured the thing the roadmap had only ever asserted: the Royalties
 economy was short by 130–390/min on every level that asks you to bank any. Of
 the four ways out, the chosen one was **the roster earns its keep** —
 `CreatureDef.earnsPerMinute`, paid only while a creature is actually working, so
-an idle basement is one that costs you money. The bot went from clearing 10 of
-36 levels to 17, and what it still misses is mostly bosses it cannot fight
-rather than economies that cannot work. Numbers and method in
+an idle basement is one that costs you money. The bot went from clearing 10 of 36 levels to 16, and
+the misses changed character entirely. It was also taught to fight — Callback
+onto the biggest threat, then buff — so that the boss numbers would mean
+something, and they now do: it still cannot kill an Eviction Warlord on four
+levels, which is a skill check nobody has yet confirmed a human passes. Numbers,
+method, and two bot changes that were tried and reverted are in
 `docs/balance.md`.
 
 ## Still outstanding

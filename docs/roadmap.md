@@ -53,10 +53,10 @@ campaigns deliberately do not:
   and feet, idle and walk animation, per-effect room fixtures, room outlines,
   rock variation — but they are still placeholders, and the finished look is a
   production pipeline rather than an engineering task. See below.
-- **Balance by a human.** A bot clears 17 of 36 levels unaided, and what it
-  still misses is mostly bosses it never learned to fight rather than economies
-  that cannot work. Nothing has been played to completion by a person, and the
-  crew's earning rates are a first pass — see `balance.md`.
+- **Balance by a human.** A bot clears 16 of 36 levels unaided. What it still
+  misses is mostly the Eviction Warlord, which is a skill check nobody has
+  confirmed a human passes — the single most important thing to play. Earning
+  rates are a first pass. See `balance.md`.
 - **On-device testing.** Still the brief's own bar for done.
 
 ## Art pipeline
